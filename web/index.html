@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>杭州住房与入学 GIS · For 一一</title><link rel="stylesheet" href="./assets/maplibre-gl.css"><link rel="stylesheet" href="./app.css"><script src="./assets/maplibre-gl.js" defer></script><script src="./app.js" type="module"></script></head>
+<body>
+<header class="topbar"><a class="brand" href="./" aria-label="杭州住房 GIS 首页"><span class="brand-symbol">杭</span><span>杭州住房 GIS<small>FOR 一一 · 城市与生活研究</small></span></a><div class="project-status"><span class="status-dot"></span>本地资料库 <span id="build-date"></span></div><nav><button id="sources-button">来源与覆盖 <span class="notification-dot"></span></button><button id="workspace-button">我的方案</button><button id="compare-button">比较 <b id="compare-count">0</b></button><button id="shortcuts-button" aria-label="快捷键与操作帮助" title="快捷键与操作帮助（?）">?</button></nav></header>
+<main class="workspace">
+  <aside class="explorer" id="explorer" aria-label="地图查询">
+    <div class="explorer-top"><div class="eyebrow">EXPLORE HANGZHOU</div><h1>学校与居住</h1><p class="subtle">选学校，看关联小区；选小区，查入学依据。</p>
+      <div class="search-box"><span data-icon="search" aria-hidden="true"></span><input id="search" type="search" placeholder="搜索小学、小区、板块…" aria-label="本地搜索" aria-keyshortcuts="/ Control+k Meta+k" autocomplete="off"><button id="search-clear" class="search-clear" aria-label="清空搜索" title="清空搜索" data-icon="close" hidden></button><button id="search-shortcut" class="search-shortcut" aria-label="聚焦本地搜索" title="搜索（/ 或 ⌘ / Ctrl + K）">/</button></div>
+      <div class="search-tabs" role="group" aria-label="搜索范围"><button data-search-mode="places" class="active">地点</button><button data-search-mode="posts">原帖正文 / 标题</button></div>
+      <div class="district-presets" role="group" aria-label="重点地区"><button data-district="滨江区" class="active">滨江</button><button data-district="拱墅区">拱墅</button><button data-district="main">主城四区</button><button data-district="">八区</button></div>
+      <div class="field-row"><label>行政区<select id="district"><option value="">八区全部</option><option value="main">主城四区</option><option>滨江区</option><option>拱墅区</option><option>西湖区</option><option>上城区</option><option>萧山区</option><option>余杭区</option><option>临平区</option><option>钱塘区</option></select></label><label>查询对象<select id="kind"><option value="school">小学 / 校区</option><option value="residential">小区</option><option value="all">全部地点</option></select></label></div>
+      <div class="field-row"><label>招生年度<select id="year"><option>2026</option><option>2024</option><option>2029</option></select></label><label>招生类型<select id="admission"><option value="all">全部类型</option><option>户籍生</option><option>新杭州人</option></select></label></div>
+      <div class="quick-checks"><label><input type="checkbox" id="officialOnly">仅当前类型官方关系</label><label><input type="checkbox" id="favoriteOnly">我的收藏</label></div>
+      <div id="scope-chip" class="scope-chip" hidden></div>
+      <details id="advanced"><summary>更多筛选 <span id="filter-count"></span><span data-icon="chevron-down" class="summary-chevron" aria-hidden="true"></span></summary><div class="advanced-body">
+        <div class="quick-checks"><label><input id="candidateOnly" type="checkbox">仅研究候选</label><label><input id="primaryOnly" type="checkbox" checked>仅小学学段</label></div>
+        <label>点位状态<select id="located"><option value="all">已定位 + 待定位</option><option value="yes">仅已有点位</option><option value="no">仅待定位 / 歧义</option></select></label>
+        <label>预算 / 面积筛选口径<select id="priceKind"><option value="listing">单套挂牌线索（非在售核验）</option><option value="deal">历史成交样本</option></select></label>
+        <div class="field-row"><label>总价下限 · 万<input id="minBudget" type="number" min="0" placeholder="不限"></label><label>总价上限 · 万<input id="maxBudget" type="number" min="0" placeholder="不限"></label></div>
+        <div class="field-row"><label>最小面积 · ㎡<input id="minArea" type="number" min="0" placeholder="不限"></label><label>最大面积 · ㎡<input id="maxArea" type="number" min="0" placeholder="不限"></label></div>
+        <label>建成年份不早于<input id="builtAfter" type="number" min="1900" max="2100" placeholder="以候选记录为准"></label>
+        <div class="field-row"><label>成交日期起<input id="dealFrom" type="date"></label><label>成交日期止<input id="dealTo" type="date"></label></div>
+        <div class="quick-checks"><label><input id="freshOnly" type="checkbox">仅近 30 天价格线索</label><label><input id="includeUnknown" type="checkbox">保留缺失数值</label></div>
+        <p class="micro">预算与面积需同一条价格记录满足。查询学校时，按所选年度关联住宅线索筛选学校；无年度关系则不满足。候选估算不是单套报价。已入库成交记录截至 <span id="advanced-deal-as-of">待载入</span>（含缺价记录，不代表当前行情）。</p>
+      </div></details>
+    </div>
+    <div id="active-filters" aria-label="已启用的筛选"></div>
+    <div id="query-feedback" class="query-feedback" role="status" hidden></div>
+    <div class="result-heading"><div><strong id="result-count">正在载入</strong><small id="location-count"></small></div><button id="reset" class="text-button">重置筛选</button></div>
+    <div id="results" class="results" aria-live="polite"></div>
+    <div class="explorer-footer"><span class="dot school"></span>学校 <span class="dot home"></span>小区 <span class="dot relation"></span>关联突出 <span class="mono">WGS84</span></div>
+  </aside>
+  <section class="map-stage" aria-label="杭州 GIS 地图">
+    <div id="map"></div>
+    <div class="map-toolbar"><button id="mobile-explorer" class="mobile-only"><span data-icon="filter"></span>筛选 / 地点</button><label class="viewport-toggle"><input type="checkbox" id="viewportOnly">只看当前视野</label><button id="rectangle-button"><span data-icon="expand"></span>矩形圈选</button><button id="fit-button"><span data-icon="locate"></span>查看结果范围</button><button id="layers-button" aria-expanded="false"><span data-icon="layers"></span>图层与标识</button></div>
+    <div id="layer-panel" class="floating-panel layer-panel" hidden><h3>地图显示</h3><label>点位只显<select id="markers"><option value="filtered">筛选结果 + 当前关联</option><option value="selected">只显选中地点</option><option value="relations">只显选中及关联</option><option value="evidence">有原帖的结果 + 当前关联</option></select></label><label>名称标识<select id="labels"><option value="smart">随缩放自动避让</option><option value="selected">只显选中及关联</option><option value="off">隐藏名称</option></select></label><label class="checkline"><input id="contextHomes" type="checkbox" checked>周边小区名称（不受查询筛选影响）</label><p class="micro">放大至街区级显示更多小区名；点击名称可查详情。点位只显、名称隐藏优先。</p><label class="checkline"><input id="show-districts" type="checkbox" checked>行政区域边界（非学区）</label><label class="checkline"><input id="online-basemap" type="checkbox" checked>在线矢量底图</label><p class="micro">缩放不影响数据关系。关闭在线底图仍可查看本地点位。</p></div>
+    <div id="map-message" class="map-message" role="status" hidden></div>
+    <div class="map-status-stack"><div id="map-context" class="map-context"><span class="status-dot"></span><span id="map-context-text">正在准备地理图层</span></div><div id="relationship-legend" class="relationship-legend" hidden></div></div>
+    <div class="time-dock" title="仅回放候选观察字段；招生与成交请独立选择年度和日期"><label for="snapshot">候选快照 <b id="snapshot-label"></b></label><input id="snapshot" type="range" min="0" max="0" value="0" aria-label="候选观察快照" aria-describedby="snapshot-description"><button id="snapshot-latest" class="text-button">最新</button><span id="snapshot-description" hidden>仅回放候选观察字段，不代表整库历史；招生与成交请独立选择年度和日期。</span></div>
+    <button id="clear-rectangle" class="clear-rectangle" hidden>清除圈选 <span data-icon="close"></span></button>
+  </section>
+  <aside id="detail" class="detail" hidden aria-label="地点关联详情"></aside>
+</main>
+<dialog id="source-dialog"><div class="dialog-head"><div><span class="eyebrow">EVIDENCE & COVERAGE</span><h2>资料有出处，判断有边界。</h2></div><button data-close-dialog="source-dialog" aria-label="关闭来源面板">×</button></div><div id="sources-content" class="dialog-body"></div></dialog>
+<dialog id="archive-dialog"><div class="dialog-head"><div><span class="eyebrow">LOCAL SOURCE ARCHIVE</span><h2>来源本地副本</h2></div><button data-close-dialog="archive-dialog" aria-label="关闭本地副本">×</button></div><div id="archive-content" class="dialog-body"></div></dialog>
+<dialog id="compare-dialog" class="wide-dialog"><div class="dialog-head"><div><span class="eyebrow">COMPARE ON THE MAP</span><h2>小区比较 <small>2—4 个</small></h2></div><button data-close-dialog="compare-dialog" aria-label="关闭比较">×</button></div><div id="compare-content" class="dialog-body"></div></dialog>
+<dialog id="workspace-dialog"><div class="dialog-head"><div><span class="eyebrow">PRIVATE, ON THIS DEVICE</span><h2>我的住房方案</h2></div><button data-close-dialog="workspace-dialog" aria-label="关闭方案">×</button></div><div id="workspace-content" class="dialog-body"></div></dialog>
+<dialog id="shortcuts-dialog" class="compact-dialog" aria-labelledby="shortcuts-title"><div class="dialog-head"><div><span class="eyebrow">地图操作</span><h2 id="shortcuts-title">快捷键与帮助</h2></div><button data-close-dialog="shortcuts-dialog" aria-label="关闭快捷键帮助">×</button></div><div class="dialog-body"><dl class="shortcut-list"><dt>本地搜索</dt><dd><kbd>/</kbd> 或 <kbd>⌘ / Ctrl</kbd> + <kbd>K</kbd></dd><dt>打开第一项搜索结果</dt><dd>搜索框中按 <kbd>Enter</kbd></dd><dt>移动结果焦点</dt><dd><kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> 打开</dd><dt>下拉菜单选择</dt><dd><kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> 确认</dd><dt>取消 / 关闭当前浮层</dt><dd><kbd>Esc</kbd></dd><dt>放大 / 缩小地图</dt><dd><kbd>+</kbd> <kbd>−</kbd></dd><dt>查看此帮助</dt><dd><kbd>?</kbd></dd></dl><p class="micro">输入文字时不会触发地图快捷键。按 Tab 可依次访问控件；详情页签支持左右方向键。搜索仅在本地资料库进行。</p></div></dialog>
+<dialog id="confirm-dialog" class="compact-dialog" aria-labelledby="confirm-title"><div class="dialog-head"><h2 id="confirm-title">清除本地资金草稿？</h2><button data-close-dialog="confirm-dialog" aria-label="取消清除">×</button></div><div class="dialog-body"><p>只删除本浏览器中的资金输入与备注。收藏、比较和原始资料不会改变；删除后无法撤销。</p><div class="dialog-actions"><button data-close-dialog="confirm-dialog" autofocus>保留草稿</button><button id="confirm-clear-draft" class="danger">清除草稿</button></div></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<noscript>请开启 JavaScript 使用 GIS。原始文件和研究报告仍保留在项目中。</noscript>
+</body></html>

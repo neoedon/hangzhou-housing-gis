@@ -1,0 +1,8 @@
+/data/
+/qa/
+/scripts/
+/pages-build-*/
+/docs.previous/
+__pycache__/
+*.pyc
+.DS_Store

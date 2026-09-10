@@ -1,4 +1,4 @@
-import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,relationPlan,contextHomes,priceMarket,queryEntities,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize,policyGroups,sourcePage} from './model.js';
+import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,relationPlan,contextHomes,priceMarket,communityProfile,queryEntities,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize,policyGroups,sourcePage} from './model.js';
 import {enhanceSelects,syncSelects,closeSelectMenu,isSelectMenuOpen} from './controls.js';
 import {icon as hi,createIcon,enhanceIcons} from './icons.js';
 import {staticDataEnabled,staticGet} from './static-api.js';
@@ -263,13 +263,14 @@ function renderDetail(){
   if(!selected||!detail)return;
   const e=byId.get(selected),school=e.kind==='school';
   const ownRecord=detail.school_records.find(r=>r.year===state.year&&r.entity_id===selected);
+  const residentialAddress=!school?communityProfile(e,detail).fields.find(item=>item.label==='楼盘位置')?.value:null;
   // A linked institution's address must never overwrite the selected physical campus.
-  const address=e.address||ownRecord?.payload.address||(school?'当前校区详细地址待核实':'详细地址待核实');
+  const address=e.address||residentialAddress||ownRecord?.payload.address||(school?'当前校区详细地址待核实':'详细地址待核实');
   const oldScroll=$('.detail-body')?.scrollTop||0,focusId=$('#detail').contains(document.activeElement)?document.activeElement.id:'';
   const tabs=[['overview',school?'关联':'概览'],...(!school?[['housing','价格行情']]:[]),...((detail.projects||[]).length?[['projects','楼盘档案']]:[]),['posts',`原帖 ${detail.posts.length}`],['sources','依据']];
   if(!tabs.some(([id])=>id===detailTab))detailTab='overview';
   const outside=!filtered.some(x=>x.id===selected);
-  const content=detailTab==='overview'?`${school?'':marketSummarySection(e)}${(detail.projects||[]).length?`<button class="load-more" data-detail-tab="projects">${hi('home')} 楼盘档案 · 开发商、销售状态与许可证</button>`:''}${outside?'<p class="detail-compact-note">选中地点独立保留，不受左侧筛选隐藏。</p>':''}${!located(e)?'<div class="notice warning">当前地点待定位；关联资料仍可查看，有坐标的对象可单独落图。</div>':''}${renderRelations()}`:
+  const content=detailTab==='overview'?`${school?'':communityProfileSection(e)}${school?'':marketSummarySection(e)}${(detail.projects||[]).length?`<button class="load-more" data-detail-tab="projects">${hi('home')} 楼盘档案 · 开发商、销售状态与许可证</button>`:''}${outside?'<p class="detail-compact-note">选中地点独立保留，不受左侧筛选隐藏。</p>':''}${!located(e)?'<div class="notice warning">当前地点待定位；关联资料仍可查看，有坐标的对象可单独落图。</div>':''}${renderRelations()}`:
     detailTab==='housing'?priceSection()+marketSnapshotsSection()+candidateSection(e):
     detailTab==='projects'?projectSection():
     detailTab==='posts'?`<section class="section"><div class="section-header"><h3>原帖与观察</h3><small>${detail.posts.length} 条</small></div>${detail.posts.length?detail.posts.map(p=>postCard(p)).join(''):empty('未提取到明确提及该地点的原帖','可在左侧切换“原帖正文 / 标题”，检索本地全库。')}${sourceButton('posts')}</section>`:renderEvidence(e);
@@ -280,6 +281,19 @@ function renderDetail(){
   if(focusId)document.getElementById(focusId)?.focus({preventScroll:true});
   if(detailTab==='overview')updateRelationList();
   updateMapInsets();
+}
+
+function communityProfileSection(e){
+  const profile=communityProfile(e,detail);
+  const priceDate=profile.price.asOf?`统计 / 事件期 ${esc(profile.price.asOf)}`:profile.price.observedAt?`读取 ${esc(profile.price.observedAt)} · 统计期未公开`:'日期待补充';
+  const priceValue=profile.price.value?`${num(profile.price.value)}<small> 元/㎡</small>`:'待补充';
+  const timingValue=profile.timing.value?esc(profile.timing.value):'待补充';
+  const rows=profile.fields.map(item=>`<div class="profile-row${item.value?'':' is-missing'}"><dt>${esc(item.label)}</dt><dd>${item.value?esc(item.value):'待补充'}</dd></div>`).join('');
+  const surroundings=profile.surrounding.length?`<details class="profile-surroundings"><summary>周边与生活配套 ${hi('chevron-down')}</summary><dl>${profile.surrounding.map(item=>`<div class="profile-row"><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`).join('')}</dl><p class="micro">配套文字来自楼盘资料页，只作位置核验线索；教育关系仍以下方年度名单、同帖与附近分层结果为准。</p></details>`:'';
+  return `<section class="section community-profile" data-testid="community-profile"><div class="section-header"><h3>小区关键信息</h3><small class="profile-completeness${profile.passesCompleteness?' is-complete':''}">已收录 ${profile.known} / ${profile.total} 项 · 待补 ${profile.missingPercent}%${profile.passesCompleteness?' · 已达标':''}</small></div>
+    <div class="profile-highlights"><article><span>${esc(profile.timing.label)}</span><strong>${timingValue}</strong><small>${esc(profile.timing.basis)}</small></article><article><span>${esc(profile.price.label)}</span><strong>${priceValue}</strong><small>${esc(profile.price.basis)}</small><small>${esc(priceDate)}${profile.price.count>1?` · ${num(profile.price.count)} 条样本`:''}</small></article></div>
+    <dl class="profile-list">${rows}</dl>${surroundings}
+    <div class="profile-evidence"><span>${profile.observedAt?`楼盘资料读取 ${esc(profile.observedAt)}`:'楼盘资料日期待补充'}；均价按可用来源优先级展示，不混合新房参考价、挂牌与历史成交。</span>${profile.sourceId?sourceButton(profile.sourceId,'查看楼盘资料来源'):''}${profile.price.sourceId&&profile.price.sourceId!==profile.sourceId?sourceButton(profile.price.sourceId,'查看均价来源'):''}</div></section>`;
 }
 
 function projectSection(){

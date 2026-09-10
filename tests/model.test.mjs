@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,canonicalSchoolIds,campusSchoolIds,queryEntities,relationPlan,contextHomes,priceMarket,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize} from '../web/model.js';
+import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,canonicalSchoolIds,campusSchoolIds,queryEntities,relationPlan,contextHomes,priceMarket,communityProfile,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize} from '../web/model.js';
 const school={id:'s',name:'闻涛小学',kind:'school',primary_school:1,district:'滨江区',lat:30.2,lng:120.2,official_years:['2026']};
 const house={id:'h',name:'闻涛花园',kind:'residential',district:'滨江区',lat:30.201,lng:120.201,candidate:{rank:1,built_year:2008,unit_price:30000},price_filter:[{kind:'listing',total_wan:300,area_sqm:89,observed_at:'2026-08-18'},{kind:'deal',total_wan:200,area_sqm:70,event_date:'2026-06-23'}]};
 const unlocated={id:'u',name:'待定小区',kind:'residential',district:'滨江区',lat:null,lng:null};
@@ -167,6 +167,33 @@ test('new-project historical references require explicit source wording and refe
   assert.equal(priceMarket({source_id:'new-project:leju:123',kind:'deal'}),'unknown');
   assert.equal(priceMarket({source_id:'incremental-price:fang:123',kind:'deal'}),'resale');
   assert.equal(priceMarket({source_id:'incremental-price:fang:123',kind:'reference'}),'unknown');
+});
+test('community profile exposes delivery and reference-image fields from current project payloads',()=>{
+  const profile=communityProfile({...house,address:'地图地址'}, {projects:[{source_id:'new-project:p',observed_at:'2026-09-09',payload:{
+    detail_observed_at:'2026-09-09T00:00:00+08:00',address:'平台地址',developer:'测试置业',property_type:'住宅',building_types:'高层',
+    units_raw:'512户',floor_area_ratio_raw:'2.7',green_ratio_raw:'35%',building_area_raw:'96152㎡',land_area_raw:'35612㎡',
+    property_manager:'测试物业',property_rights:'住宅：70年',field_values:{最近交房:'2026年04月30日',物业费:'3.2元/㎡/月',车位:'639个',车位配比:'1:1.24',人车分流:'是',交通情况:'距地铁约400米'},
+    prices:[{amount:46000,unit:'元/㎡',price_type:'platform_reference',observed_at:'2026-09-09'}]
+  }}]});
+  assert.deepEqual(profile.timing,{value:'2026年04月30日',label:'交付时间',basis:'来源页面“最近交房”字段'});
+  assert.equal(profile.price.value,46000);assert.equal(profile.price.label,'新房平台参考均价');
+  assert.equal(profile.fields.find(item=>item.label==='开发商').value,'测试置业');
+  assert.equal(profile.fields.find(item=>item.label==='总车位数').value,'639个');
+  assert.deepEqual(profile.surrounding,[{label:'交通',value:'距地铁约400米'}]);
+  assert.equal(profile.sourceId,'new-project:p');assert.equal(profile.known,18);assert.equal(profile.total,18);
+  assert.equal(profile.missing,0);assert.equal(profile.missingPercent,0);assert.equal(profile.passesCompleteness,true);
+});
+test('community profile prioritizes dated market reference and labels historical deal fallback honestly',()=>{
+  const reference=communityProfile(house,{market_snapshots:[{source_id:'market:s',observed_at:'2026-09-09',payload:{reference_unit_yuan_sqm:82429,source_as_of:'2026-08',metric_semantics:'小区参考均价'}}],prices:[{kind:'deal',unit_yuan_sqm:30000,event_date:'2026-06-01'}]});
+  assert.equal(reference.price.value,82429);assert.equal(reference.price.label,'小区参考均价');assert.equal(reference.price.asOf,'2026-08');
+  const deals=communityProfile(house,{prices:[{source_id:'deals',kind:'deal',unit_yuan_sqm:28000,event_date:'2026-06-01',observed_at:'2026-06-24'},{source_id:'deals',kind:'deal',unit_yuan_sqm:32000,event_date:'2026-06-20',observed_at:'2026-06-24'}]});
+  assert.equal(deals.price.value,30000);assert.equal(deals.price.label,'成交样本均价');assert.equal(deals.price.count,2);
+  assert.equal(deals.price.asOf,'2026-06-01 — 2026-06-20');assert.match(deals.price.basis,/不代表当前行情/);
+});
+test('community profile keeps every key row visible when evidence is missing',()=>{
+  const profile=communityProfile({kind:'residential',name:'待补充小区'},{});
+  assert.equal(profile.fields.length,16);assert.equal(profile.known,0);assert.equal(profile.total,18);assert.equal(profile.missing,18);assert.equal(profile.missingPercent,100);assert.equal(profile.passesCompleteness,false);assert.equal(profile.timing.value,null);assert.equal(profile.price.value,null);
+  assert.equal(profile.fields.every(item=>item.value===null),true);
 });
 test('observed Fang and Anjuke resale channels are classified without guessing generic URLs',()=>{
   assert.equal(priceMarket({kind:'listing',payload:{url:'https://m.fang.com/esf/hz_xm2010186770/'}}),'resale');

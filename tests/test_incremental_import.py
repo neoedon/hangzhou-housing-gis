@@ -89,6 +89,21 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT count(*) FROM projects').fetchone()[0],1)
         self.assertEqual(self.db.execute('SELECT count(*) FROM prices').fetchone()[0],1)
 
+    def test_reviewed_project_identity_bridge_moves_prior_project_and_price_to_declared_osm_entity(self):
+        prior = self.project(project_id='leju:hangzhou:old',name='泰地·洄龙湖邸',district='拱墅区')
+        self.assertTrue(add_project(self.builder,self.bundle,prior))
+        old_entity = self.db.execute('SELECT entity_id FROM projects WHERE id=?',(prior['project_id'],)).fetchone()[0]
+        self.assertTrue(old_entity.startswith('local:'))
+        self.builder.entity('osm:way:lake','洄龙湖邸','residential','拱墅区',30.32,120.19)
+        supplement = self.project(project_id='profile-tail:lake',name='泰地·洄龙湖邸',district='拱墅区',
+            aliases=['洄龙湖邸'],target_entity_id='osm:way:lake',merge_project_ids=[prior['project_id']],prices=[])
+        self.assertTrue(add_project(self.builder,self.bundle,supplement))
+        self.assertEqual(self.db.execute('SELECT DISTINCT entity_id FROM projects').fetchall(),[('osm:way:lake',)])
+        self.assertEqual(self.db.execute('SELECT DISTINCT entity_id FROM prices').fetchall(),[('osm:way:lake',)])
+        self.assertEqual(self.db.execute('SELECT status FROM mappings WHERE source_id=?',
+                         ('new-project:'+prior['project_id'],)).fetchone()[0],'reviewed_project_identity_bridge')
+        self.assertEqual(self.builder._reviewed_project_identity_merges[0]['from_entity_id'],old_entity)
+
     def test_masked_deal_prices_remain_null_and_date_is_actual_event(self):
         self.assertTrue(add_price(self.builder,self.bundle,self.deal()))
         self.assertEqual(self.db.execute('SELECT kind,total_wan,unit_yuan_sqm,event_date FROM prices').fetchone(),('deal',None,None,'2026-08-12'))

@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from build_data import APP, ROOT, digest, dump, number, day, safe_url, norm
 
-MANIFEST = APP / 'data/incremental/2026-09-09/accepted_manifest.json'
+MANIFEST = APP / 'data/incremental/2026-09-10/accepted_manifest.json'
 
 
 def market_project_key(row):
@@ -115,6 +115,38 @@ def add_project(builder, bundle, row):
                           aliases=row.get('aliases', []), address=row.get('address') or '')
     inserted = builder.db.execute('INSERT OR IGNORE INTO projects VALUES(?,?,?,?,?)',
                        (row['project_id'], eid, sid, row.get('detail_observed_at'), dump(row))).rowcount
+    target_entity_id = row.get('target_entity_id')
+    merge_project_ids = row.get('merge_project_ids', [])
+    if target_entity_id or merge_project_ids:
+        if target_entity_id != eid or not eid.startswith('osm:'):
+            raise ValueError('Reviewed project identity bridge did not resolve to its declared OSM target')
+        if not isinstance(merge_project_ids, list):
+            raise ValueError('merge_project_ids must be a reviewed list')
+        if not hasattr(builder, '_reviewed_project_identity_merges'):
+            builder._reviewed_project_identity_merges = []
+        for project_id in merge_project_ids:
+            prior = builder.db.execute('''
+                SELECT p.entity_id,p.source_id,e.district
+                FROM projects p JOIN entities e ON e.id=p.entity_id
+                WHERE p.id=?
+            ''', (project_id,)).fetchone()
+            if not prior or prior[2] != row['district']:
+                raise ValueError('Reviewed project identity bridge target is missing or crosses districts')
+            previous_entity_id, previous_source_id, _ = prior
+            if previous_entity_id == eid:
+                continue
+            builder.db.execute('UPDATE projects SET entity_id=? WHERE id=?', (eid, project_id))
+            builder.db.execute('UPDATE prices SET entity_id=? WHERE source_id=?', (eid, previous_source_id))
+            builder.db.execute('''
+                UPDATE mappings SET entity_id=?,status=?,options=?
+                WHERE source_id=? AND source_record=?
+            ''', (eid, 'reviewed_project_identity_bridge', dump([eid]), previous_source_id, project_id))
+            builder._reviewed_project_identity_merges.append({
+                'project_id': project_id,
+                'from_entity_id': previous_entity_id,
+                'to_entity_id': eid,
+                'evidence_project_id': row['project_id'],
+            })
     for index, price in enumerate(row.get('prices', [])):
         amount = number(price.get('amount'))
         # Only explicit unencoded detail-page reference units; totals and ranges
@@ -262,4 +294,5 @@ def integrate(builder, manifest_path=MANIFEST):
         if entry['status'] in ('phase_names_preserved', 'directory_identity_unresolved', 'ambiguous_catalogue_matches')]
     result['bridged_market_projects'] = [entry for entry in builder._market_identities.values()
         if entry['status'] == 'source_project_marketing_alias_bridge']
+    result['reviewed_project_identity_merges'] = getattr(builder, '_reviewed_project_identity_merges', [])
     return result

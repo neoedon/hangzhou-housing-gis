@@ -1,4 +1,4 @@
-import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,relationPlan,contextHomes,priceMarket,communityProfile,queryEntities,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize,policyGroups,sourcePage} from './model.js';
+import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,relationPlan,contextHomes,priceMarket,communityProfile,queryEntities,districtTransactionRanking,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize,policyGroups,sourcePage} from './model.js';
 import {enhanceSelects,syncSelects,closeSelectMenu,isSelectMenuOpen} from './controls.js';
 import {icon as hi,createIcon,enhanceIcons} from './icons.js';
 import {staticDataEnabled,staticGet} from './static-api.js';
@@ -12,9 +12,9 @@ const empty=(title,body)=>`<div class="empty"><strong>${esc(title)}</strong>${es
 const icon=e=>`<span class="entity-icon ${e.kind==='residential'?'home':'school'}" aria-hidden="true">${hi(e.kind==='school'?'school':'home',{size:18})}</span>`;
 const sourceButton=(id,label='查看来源')=>`<button class="text-button" data-source="${esc(id)}">${esc(label)} ${hi('document')}</button>`;
 const href=(url,label)=>/^https?:\/\//.test(url||'')?`<a class="small-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)} ${hi('external')}</a>`:'';
-let data,byId,map,ready=false,allBaseLayers=[],filtered=[],pageSize=40,selected='',detail=null,detailMode='official',searchMode='places';
+let data,byId,map,ready=false,allBaseLayers=[],filtered=[],ranked=[],pageSize=40,selected='',detail=null,detailMode='official',searchMode='places';
 let state={...DEFAULTS},favorites=[],compare=[],snapshotData=null,detailTicket=0,searchTicket=0,toastTimer,postHits=null,viewStack=[],drawing=false,drawStart=null;
-let detailTab='overview',relationQuery='',relationLocatedOnly=false,placesKind=DEFAULTS.kind,priceMarketFilter='all';
+let detailTab='overview',relationQuery='',relationLocatedOnly=false,placesKind=DEFAULTS.kind,priceMarketFilter='all',rankingMetric='count';
 let relationCache={key:'',value:null};
 const detailCache=new Map();
 const savedKey='hangzhou-gis:v1:';
@@ -47,7 +47,11 @@ function syncInputs(){
   $('#search-clear').hidden=!state.query;
   $$('[data-district]').forEach(b=>b.classList.toggle('active',b.dataset.district===state.district));
   $$('[data-search-mode]').forEach(b=>b.classList.toggle('active',b.dataset.searchMode===searchMode));
-  $('#search').placeholder=searchMode==='posts'?`搜索 ${num(data.meta.metrics.posts)} 条本地原帖…`:'搜索小学、小区、板块…';
+  $('#explorer').classList.toggle('ranking-mode',searchMode==='ranking');
+  $('#search').placeholder=searchMode==='posts'?`搜索 ${num(data.meta.metrics.posts)} 条本地原帖…`:searchMode==='ranking'?'在成交排行中搜索小区…':'搜索小学、小区、板块…';
+  $('#kind').disabled=searchMode==='ranking';
+  $('#ranking-controls').hidden=searchMode!=='ranking';
+  $('#rankingMetric').value=rankingMetric;
   const scope=byId.get(state.schoolId);
   $('#scope-chip').hidden=!scope;
   $('#scope-chip').innerHTML=scope?`<span>${esc(scope.name)} · ${esc(state.year)} 招生小区</span><button id="clear-school" aria-label="清除学校范围">${hi('close')}</button>`:'';
@@ -85,8 +89,18 @@ function renderQuery(){
   }
   $('#query-feedback').hidden=!invalid;
   $('#query-feedback').textContent=invalid?'筛选下限大于上限，请调整预算、面积或日期范围。':'';
-  filtered=queryEntities(data,state,favorites,snapshotData);
-  if(searchMode==='posts'){
+  filtered=queryEntities(data,state,favorites,snapshotData);ranked=[];
+  if(searchMode==='ranking'){
+    ranked=districtTransactionRanking(data,state,rankingMetric,favorites,snapshotData);
+    filtered=ranked.map(row=>row.entity);
+    const districtLabel=state.district==='main'?'主城四区':state.district||'八区';
+    const metricLabel={count:'成交记录数',unit:'成交单价中位数',total:'可读成交总额',latest:'最近成交日期'}[rankingMetric];
+    $('#result-count').textContent=`${districtLabel} · ${ranked.length} 个小区`;
+    $('#location-count').textContent=`按${metricLabel}排序 · ${filtered.filter(located).length} 个可落图`;
+    $('#ranking-period').textContent=`口径：${state.dealFrom||'最早'} 至 ${state.dealTo||data.meta.metrics.deal_as_of||'最新'}；排除疑似重复。“记录数”含价格未公开记录，不等于登记成交套数。`;
+    $('#results').innerHTML=ranked.length?ranked.slice(0,pageSize).map(rankingCard).join(''):empty('当前范围没有已接入成交记录','试试调整行政区、成交日期或其他筛选。没有记录不代表没有成交。');
+    if(ranked.length>pageSize)$('#results').insertAdjacentHTML('beforeend',`<button class="load-more" id="load-more">继续显示 · 还有 ${ranked.length-pageSize} 个</button>`);
+  }else if(searchMode==='posts'){
     const visiblePosts=getVisiblePosts();
     const ids=new Set(visiblePosts.flatMap(p=>p.place_ids));
     filtered=queryEntities(data,{...state,query:''},favorites,snapshotData).filter(e=>ids.has(e.id));
@@ -107,6 +121,10 @@ function renderQuery(){
   else if(!map?.hasGISNetworkError)announce('');
   renderMap();
 }
+function rankingCard(row){
+  const primary=row.metric==='unit'?(row.medianUnit?`${num(row.medianUnit)} 元/㎡`:'单价待补'):row.metric==='total'?(row.totalWan?`${num(row.totalWan,1)} 万`:'总额待补'):row.metric==='latest'?(row.latestDate||'日期待补'):`${num(row.dealCount)} 条`;
+  return `<button class="ranking-card ${row.entity.id===selected?'selected':''}" data-select="${esc(row.entity.id)}" aria-label="第 ${row.rank} 名，${esc(row.entity.name)}，${esc(primary)}"><span class="ranking-position">${row.rank}</span><span class="ranking-main"><strong>${esc(row.entity.name)}</strong><small>${esc(row.entity.district||'区属待核')} · ${row.dealCount} 条记录 · ${row.pricedCount}/${row.dealCount} 条单价可读</small><span>${row.medianUnit?`单价中位数 ${num(row.medianUnit)} 元/㎡`:'成交单价待补'} · ${row.latestDate?`最近 ${esc(row.latestDate)}`:'日期待补'}</span></span><span class="ranking-value"><strong>${primary}</strong>${hi('arrow-right')}</span></button>`;
+}
 function resultCard(e){
   const c=getCandidate(e);const annual=e.official_years?.includes(state.year);
   const affiliation=(data.school_campus_links||[]).some(l=>l.campus_id===e.id&&l.year===state.year&&l.kind==='documented_campus_affiliation');
@@ -120,7 +138,7 @@ async function searchPosts(){
   try{const result=await get('/api/posts?q='+encodeURIComponent(state.query));if(ticket!==searchTicket)return;postHits=result;renderQuery();}
   catch(e){if(ticket===searchTicket){$('#results').innerHTML=empty('原帖读取失败',e.message);toast(e.message);}}
 }
-function currentView(){return {selected,state:{...state},searchMode,detailMode,detailTab,priceMarketFilter,relationQuery,relationLocatedOnly,detailScroll:$('.detail-body')?.scrollTop||0,listScroll:$('#results').scrollTop,center:map?.getCenter().toArray(),zoom:map?.getZoom()};}
+function currentView(){return {selected,state:{...state},searchMode,detailMode,detailTab,priceMarketFilter,rankingMetric,relationQuery,relationLocatedOnly,detailScroll:$('.detail-body')?.scrollTop||0,listScroll:$('#results').scrollTop,center:map?.getCenter().toArray(),zoom:map?.getZoom()};}
 function updateMapInsets(){
   if(!map)return;
   const stage=$('.map-stage').getBoundingClientRect(),panel=$('#detail').getBoundingClientRect();
@@ -153,7 +171,7 @@ async function back(){
   const snapshotChanged=old.state.snapshot!==state.snapshot;
   state=old.state;searchMode=old.searchMode;syncInputs();
   if(snapshotChanged)await setSnapshot(data.meta.metrics.snapshot_dates.indexOf(old.state.snapshot));
-  await selectEntity(old.selected,{push:false,focus:false});detailMode=old.detailMode;detailTab=old.detailTab;priceMarketFilter=old.priceMarketFilter||'all';relationQuery=old.relationQuery;relationLocatedOnly=old.relationLocatedOnly;renderDetail();renderQuery();
+  await selectEntity(old.selected,{push:false,focus:false});detailMode=old.detailMode;detailTab=old.detailTab;priceMarketFilter=old.priceMarketFilter||'all';rankingMetric=old.rankingMetric||'count';relationQuery=old.relationQuery;relationLocatedOnly=old.relationLocatedOnly;renderDetail();renderQuery();
   if($('.detail-body'))$('.detail-body').scrollTop=old.detailScroll;$('#results').scrollTop=old.listScroll;
   if(old.center)map?.jumpTo({center:old.center,zoom:old.zoom});
 }
@@ -338,7 +356,8 @@ function renderMap(){
   if(located(selection))drawn.set(selection.id,selection);
   for(const id of compare){const e=byId.get(id);if(located(e)&&state.markers==='filtered')drawn.set(id,e);}
   const filteredSet=new Set(filtered.map(e=>e.id));
-  const features=[...drawn.values()].map(e=>point(e,{selected:e.id===selected,related:relatedSet.has(e.id),number:compare.includes(e.id)?String(compare.indexOf(e.id)+1):'',isResult:filteredSet.has(e.id)}));
+  const rankById=new Map(ranked.map(row=>[row.entity.id,row.rank]));
+  const features=[...drawn.values()].map(e=>{const rank=rankById.get(e.id);return point(e,{selected:e.id===selected,related:relatedSet.has(e.id),ranking:searchMode==='ranking',number:compare.includes(e.id)?String(compare.indexOf(e.id)+1):searchMode==='ranking'&&rank<=20?String(rank):'',isResult:filteredSet.has(e.id)});});
   map.getSource('gis-places').setData(geojson(features));
   // Geographic context is independent of the query. Only-show and label controls still win.
   const surroundingHomes=contextHomes(data,state,[...drawn.keys()]);
@@ -353,7 +372,8 @@ function renderMap(){
   const labelFilter=state.labels==='off'?['==',1,0]:state.labels==='selected'?['any',['get','selected'],['get','related']]:true;
   map.setFilter('gis-labels',labelFilter===true?null:labelFilter);
   const outside=selection&&!filtered.some(e=>e.id===selected)?' · 保留当前选中':'';
-  $('#map-context-text').textContent=`结果与关联 ${drawn.size} 个点 · ${lines.length} 条连线${outside}${surroundingHomes.length?' · 周边小区名开启':''}`;
+  const rankedLocated=ranked.filter(row=>located(row.entity)).length,topRankedLocated=ranked.slice(0,20).filter(row=>located(row.entity)).length;
+  $('#map-context-text').textContent=searchMode==='ranking'?`成交排行 ${rankedLocated} 个小区可落图 · 前 20 名已定位 ${topRankedLocated} 个${outside}`:`结果与关联 ${drawn.size} 个点 · ${lines.length} 条连线${outside}${surroundingHomes.length?' · 周边小区名开启':''}`;
   $('#relationship-legend').hidden=!plan||!related.length;
   $('#relationship-legend').innerHTML=plan?`<span class="legend-swatch" data-tier="${plan.tier}"></span><span>${tierLabels[plan.tier]}${plan.tier!=='official'?' · 非对口结论':' · 地址待核'}</span>`:'';
   renderRectangle(state.rectangle);
@@ -569,7 +589,22 @@ function bindEvents(){
     if(b.dataset.sourceArchive)return showSourceArchive(b.dataset.sourceArchive);
     if(b.dataset.closeDialog)return $('#'+b.dataset.closeDialog).close();
     if(b.dataset.district!==undefined){change({district:b.dataset.district,schoolId:'',rectangle:null,viewportOnly:false},{fit:true});return;}
-    if(b.dataset.searchMode){if(searchMode===b.dataset.searchMode)return;searchMode=b.dataset.searchMode;if(searchMode==='posts'){placesKind=state.kind;state.kind=state.schoolId?'residential':'all';}else state.kind=placesKind;syncInputs();renderDetail();return searchMode==='posts'?searchPosts():renderQuery();}
+    if(b.dataset.searchMode){
+      if(searchMode===b.dataset.searchMode)return;
+      if(searchMode==='places')placesKind=state.kind;
+      searchMode=b.dataset.searchMode;
+      if(searchMode==='posts')state.kind=state.schoolId?'residential':'all';
+      else if(searchMode==='ranking'){
+        state.kind='residential';state.priceKind='deal';state.schoolId='';state.officialOnly=false;
+        const asOf=data.meta.metrics.deal_as_of||'';
+        if(!state.dealFrom&&!state.dealTo&&/^\d{4}-\d{2}-\d{2}$/.test(asOf)){state.dealFrom=asOf.slice(0,4)+'-01-01';state.dealTo=asOf;}
+      }else state.kind=placesKind;
+      syncInputs();renderDetail();
+      if(searchMode==='posts')return searchPosts();
+      renderQuery();
+      if(searchMode==='ranking'&&!state.viewportOnly)fitResults();
+      return;
+    }
     if(b.dataset.clearFilter){change({[b.dataset.clearFilter]:DEFAULTS[b.dataset.clearFilter]});if(b.dataset.clearFilter==='query'&&searchMode==='posts')searchPosts();return;}
     if(b.dataset.relation){detailMode=b.dataset.relation;relationQuery='';relationLocatedOnly=false;renderDetail();renderMap();return;}
     if(b.dataset.priceMarket){priceMarketFilter=b.dataset.priceMarket;renderDetail();return;}
@@ -577,9 +612,9 @@ function bindEvents(){
     if(b.dataset.removeCompare){compare=compare.filter(id=>id!==b.dataset.removeCompare);save('compare',compare);syncInputs();renderMap();renderDetail();return showCompare();}
     switch(b.id){
       case 'load-more':pageSize+=40;renderQuery();break;
-      case 'reset':state={...DEFAULTS,snapshot:data.meta.metrics.candidate_snapshot};searchMode='places';snapshotData=null;drawing=false;drawStart=null;$('#rectangle-button').classList.remove('active');$('#snapshot').value=data.meta.metrics.snapshot_dates.length-1;$('#snapshot-label').textContent=state.snapshot;syncInputs();renderDetail();renderQuery();fitResults();break;
+      case 'reset':state={...DEFAULTS,snapshot:data.meta.metrics.candidate_snapshot};searchMode='places';placesKind=DEFAULTS.kind;rankingMetric='count';snapshotData=null;drawing=false;drawStart=null;$('#rectangle-button').classList.remove('active');$('#snapshot').value=data.meta.metrics.snapshot_dates.length-1;$('#snapshot-label').textContent=state.snapshot;syncInputs();renderDetail();renderQuery();fitResults();break;
       case 'clear-school':change({schoolId:''});break;
-      case 'scope-school':if(!currentRelationPlan().canScope)break;searchMode='places';change({schoolId:selected,kind:'residential',query:'',district:byId.get(selected).district,officialOnly:false,rectangle:null,viewportOnly:false},{fit:true});break;
+      case 'scope-school':if(!currentRelationPlan().canScope)break;searchMode='places';placesKind='residential';change({schoolId:selected,kind:'residential',query:'',district:byId.get(selected).district,officialOnly:false,rectangle:null,viewportOnly:false},{fit:true});break;
       case 'fit-relations':fitRelations();break;
       case 'show-relations':change({markers:state.markers==='relations'?'filtered':'relations'});break;
       case 'inspector-collapse':document.body.classList.toggle('detail-collapsed');renderDetail();break;
@@ -606,6 +641,7 @@ function bindEvents(){
   });
   $('#snapshot').addEventListener('change',e=>setSnapshot(Number(e.target.value)));
   $('#snapshot').addEventListener('input',e=>$('#snapshot-label').textContent=data.meta.metrics.snapshot_dates[Number(e.target.value)]);
+  $('#rankingMetric').addEventListener('change',e=>{rankingMetric=e.target.value;pageSize=40;renderQuery();});
   $('#show-districts').addEventListener('change',e=>{if(!ready)return;for(const id of ['gis-district-fill','gis-district-lines'])map.setLayoutProperty(id,'visibility',e.target.checked?'visible':'none');});
   $('#online-basemap').addEventListener('change',e=>{if(!ready)return;for(const id of allBaseLayers)if(map.getLayer(id))map.setLayoutProperty(id,'visibility',e.target.checked?'visible':'none');toast(e.target.checked?'已显示在线底图':'已隐藏在线底图；本地研究图层继续显示。');});
   document.addEventListener('input',e=>{if(e.target.closest('#draft-form'))calculateDraft();if(e.target.id==='relation-search'){relationQuery=e.target.value;updateRelationList();}});
@@ -622,13 +658,14 @@ function bindEvents(){
       e.preventDefault();clearTimeout(searchTimer);if(searchMode==='posts')await searchPosts();else renderQuery();
       const first=$('#results [data-select]');if(e.key==='Enter')first?.click();else first?.focus();return;
     }
-    if(e.target.matches('.result-card')&&['ArrowUp','ArrowDown','Home','End'].includes(e.key)){
-      e.preventDefault();const items=$$('#results .result-card'),i=items.indexOf(e.target),next=e.key==='Home'?0:e.key==='End'?items.length-1:Math.max(0,Math.min(items.length-1,i+(e.key==='ArrowDown'?1:-1)));items[next]?.focus();return;
+    if(e.target.matches('.result-card,.ranking-card')&&['ArrowUp','ArrowDown','Home','End'].includes(e.key)){
+      e.preventDefault();const items=$$('#results .result-card,#results .ranking-card'),i=items.indexOf(e.target),next=e.key==='Home'?0:e.key==='End'?items.length-1:Math.max(0,Math.min(items.length-1,i+(e.key==='ArrowDown'?1:-1)));items[next]?.focus();return;
     }
     if(e.target.matches('[data-detail-tab]')&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
       e.preventDefault();const tabs=$$('[data-detail-tab]'),index=tabs.indexOf(e.target),next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[next].click();return;
     }
     if(!editable&&e.key==='/'){e.preventDefault();focusSearch();return;}
+    if(!editable&&e.key.toLowerCase()==='r'){e.preventDefault();document.querySelector('[data-search-mode="ranking"]')?.click();return;}
     if(!editable&&e.key==='?'){e.preventDefault();openDialog('shortcuts-dialog');return;}
     if(!editable&&['+','=','-'].includes(e.key)&&ready){e.preventDefault();e.key==='-'?map.zoomOut():map.zoomIn();return;}
     if(e.key==='Escape'){

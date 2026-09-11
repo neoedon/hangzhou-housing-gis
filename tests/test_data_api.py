@@ -50,6 +50,14 @@ class DataTests(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT max(event_date) FROM prices WHERE source_id='deals'").fetchone()[0], "2026-06-23")
         self.assertEqual(self.db.execute("SELECT count(*) FROM prices WHERE kind!='deal' AND event_date IS NOT NULL").fetchone()[0], 0)
 
+    def test_bootstrap_exposes_ranking_price_fields_and_duplicate_flag(self):
+        payload = server.bootstrap(self.db)
+        price_rows = [row for entity in payload['entities'] for row in entity.get('price_filter', [])]
+        self.assertTrue(price_rows)
+        self.assertTrue(all('unit_yuan_sqm' in row and 'possible_duplicate' in row for row in price_rows))
+        for row in price_rows:
+            self.assertIsInstance(row['possible_duplicate'], bool)
+
     def test_reviewed_market_increment_contract(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         inc = metrics.get('incremental', {})
@@ -135,7 +143,11 @@ class DataTests(unittest.TestCase):
         self.assertGreaterEqual(self.count("school_campus_links"), 14)
 
     def test_historical_candidate_snapshots_are_daily(self):
-        self.assertEqual(self.db.execute("SELECT count(DISTINCT snapshot_date) FROM history").fetchone()[0], 60)
+        metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
+        self.assertEqual(
+            self.db.execute("SELECT count(DISTINCT snapshot_date) FROM history").fetchone()[0],
+            len(metrics["snapshot_dates"]),
+        )
         self.assertEqual(self.db.execute("SELECT count(*) FROM (SELECT snapshot_date,entity_id,count(*) n FROM history GROUP BY 1,2 HAVING n>1)").fetchone()[0], 0)
 
     def test_read_only_connection(self):

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,canonicalSchoolIds,campusSchoolIds,queryEntities,relationPlan,contextHomes,priceMarket,communityProfile,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize} from '../web/model.js';
+import {DEFAULTS,normalize,numeric,located,inside,rectangle,relatedAdmissions,canonicalSchoolIds,campusSchoolIds,queryEntities,districtTransactionRanking,relationPlan,contextHomes,priceMarket,communityProfile,toggleCompare,readSaved,fundingGap,boundsOf,isFresh,filterPosts,minimumTextSize} from '../web/model.js';
 const school={id:'s',name:'闻涛小学',kind:'school',primary_school:1,district:'滨江区',lat:30.2,lng:120.2,official_years:['2026']};
 const house={id:'h',name:'闻涛花园',kind:'residential',district:'滨江区',lat:30.201,lng:120.201,candidate:{rank:1,built_year:2008,unit_price:30000},price_filter:[{kind:'listing',total_wan:300,area_sqm:89,observed_at:'2026-08-18'},{kind:'deal',total_wan:200,area_sqm:70,event_date:'2026-06-23'}]};
 const unlocated={id:'u',name:'待定小区',kind:'residential',district:'滨江区',lat:null,lng:null};
@@ -44,6 +44,24 @@ test('newly observed undated references and recommendation cards are not fresh q
   }
 });
 test('post geographic filters use the same entity result set',()=>{const posts=[{id:'1',place_ids:['h'],district:'滨江'},{id:'2',place_ids:[],district:'滨江'},{id:'3',place_ids:['g'],district:'拱墅'}];assert.deepEqual(filterPosts(posts,data,{...DEFAULTS,kind:'all'}).map(p=>p.id),['1','2']);assert.deepEqual(filterPosts(posts,data,{...DEFAULTS,kind:'all',rectangle:[120.2,30.2,120.202,30.202]}).map(p=>p.id),['1']);assert.deepEqual(filterPosts(posts,data,{...DEFAULTS,kind:'all',minBudget:'100'}).map(p=>p.id),['1']);});
+test('district transaction ranking respects district, date and duplicate exclusions',()=>{
+  const rankingData={...data,entities:[
+    {...house,id:'r1',name:'甲小区',price_filter:[
+      {kind:'deal',event_date:'2026-02-01',unit_yuan_sqm:42000,total_wan:420},
+      {kind:'deal',event_date:'2026-08-03',unit_yuan_sqm:46000,total_wan:460},
+      {kind:'deal',event_date:'2026-09-01',unit_yuan_sqm:99000,total_wan:990,possible_duplicate:true}]},
+    {...house,id:'r2',name:'乙小区',price_filter:[{kind:'deal',event_date:'2026-06-01',unit_yuan_sqm:50000,total_wan:300}]},
+    {...house,id:'r3',name:'拱墅样本',district:'拱墅区',price_filter:[{kind:'deal',event_date:'2026-07-01',unit_yuan_sqm:60000,total_wan:600}]}
+  ]};
+  const base={...DEFAULTS,kind:'residential',district:'滨江区',priceKind:'deal',dealFrom:'2026-01-01',dealTo:'2026-08-31'};
+  const byCount=districtTransactionRanking(rankingData,base,'count');
+  assert.deepEqual(byCount.map(row=>[row.entity.id,row.dealCount,row.pricedCount]),[['r1',2,2],['r2',1,1]]);
+  assert.equal(byCount[0].medianUnit,44000);
+  assert.equal(byCount[0].totalWan,880);
+  assert.equal(byCount[0].latestDate,'2026-08-03');
+  assert.deepEqual(districtTransactionRanking(rankingData,base,'unit').map(row=>row.entity.id),['r2','r1']);
+  assert.deepEqual(districtTransactionRanking(rankingData,{...base,dealFrom:'2026-07-01'},'count').map(row=>row.entity.id),['r1']);
+});
 
 const portalData={
   entities:[{...school,lat:null,lng:null,name:'杭州市闻涛实验小学（本部）'},

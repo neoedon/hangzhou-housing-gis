@@ -209,6 +209,34 @@ export function queryEntities(data,s,favorites=[],snapshot=null,today){
      (b.post_count||0)-(a.post_count||0)||a.name.localeCompare(b.name,'zh'));
 }
 
+function median(values){
+  const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!sorted.length)return null;
+  const middle=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[middle]:Math.round((sorted[middle-1]+sorted[middle])/2);
+}
+/** Rank residential entities using only deduplicated, dated transaction rows. */
+export function districtTransactionRanking(data,state={},metric='count',favorites=[],snapshot=null,today){
+  const s={...DEFAULTS,...state,kind:'residential',priceKind:'deal'};
+  const eligible=queryEntities(data,s,favorites,snapshot,today);
+  const rows=eligible.map(entity=>{
+    const deals=(entity.price_filter||[]).filter(row=>row.kind==='deal'&&!row.possible_duplicate&&priceMatches(row,s,today));
+    const unitValues=deals.map(row=>positiveNumber(row.unit_yuan_sqm)).filter(Boolean);
+    const totalValues=deals.map(row=>positiveNumber(row.total_wan)).filter(Boolean);
+    const dates=deals.map(row=>profileDate(row.event_date)).filter(Boolean).sort();
+    return {entity,dealCount:deals.length,pricedCount:unitValues.length,totalPricedCount:totalValues.length,
+      medianUnit:median(unitValues),totalWan:totalValues.length?Math.round(totalValues.reduce((sum,value)=>sum+value,0)*10)/10:null,
+      latestDate:dates.at(-1)||null,earliestDate:dates[0]||null};
+  }).filter(row=>row.dealCount>0);
+  const value=row=>metric==='unit'?row.medianUnit:metric==='total'?row.totalWan:metric==='latest'?row.latestDate:row.dealCount;
+  rows.sort((a,b)=>{
+    const av=value(a),bv=value(b);
+    if(metric==='latest')return String(bv||'').localeCompare(String(av||''))||b.dealCount-a.dealCount||a.entity.name.localeCompare(b.entity.name,'zh');
+    return (Number(bv)||-1)-(Number(av)||-1)||b.dealCount-a.dealCount||String(b.latestDate||'').localeCompare(String(a.latestDate||''))||a.entity.name.localeCompare(b.entity.name,'zh');
+  });
+  return rows.map((row,index)=>({...row,rank:index+1,metric,value:value(row)}));
+}
+
 // A single evidence plan drives relation lists, map highlights and lines.
 export function relationPlan(data,detail,selectedId,state,requestedMode='official',{snapshot=null,today}={}){
   const s={...DEFAULTS,...state},byId=new Map(data.entities.map(e=>[e.id,e])),selected=byId.get(selectedId);

@@ -205,11 +205,13 @@ def bootstrap(db):
             # Search aliases do not mutate catalogue identity or coordinates.
             by_id[r['entity_id']].setdefault('project_names', []).extend(
                 name for name in [p.get('name'), *(p.get('aliases') or [])] if isinstance(name, str) and name)
-    price_rows = rows(db, "SELECT entity_id,source_id,kind,observed_at,event_date,total_wan,area_sqm,payload FROM prices")
+    price_rows = rows(db, "SELECT entity_id,source_id,kind,observed_at,event_date,total_wan,unit_yuan_sqm,area_sqm,payload FROM prices")
     for r in price_rows:
         payload = json.loads(r.pop('payload'))
         r['price_as_of'] = payload.get('price_as_of')
         r['source_as_of'] = payload.get('source_as_of')
+        r['possible_duplicate'] = bool(payload.get('possible_duplicate_group') or
+                                       int(payload.get('baseline_possible_business_matches') or 0) > 0)
         by_id[r["entity_id"]].setdefault("price_filter", []).append({k: v for k, v in r.items() if k != "entity_id"})
     for r in rows(db, "SELECT entity_id,year,official_id FROM school_records"):
         by_id[r["entity_id"]].setdefault("official_years", []).append(r["year"])

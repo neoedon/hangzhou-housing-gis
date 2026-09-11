@@ -222,12 +222,34 @@ def bootstrap(db):
         campus.setdefault("official_years", []).append(link["year"])
         campus.setdefault("official_ids", []).append(link["official_id"])
         campus.setdefault("official_link_kinds", []).append(link["kind"])
+    school_group_memberships = []
+    if has_table(db, "school_group_memberships"):
+        school_group_memberships = rows(db, """
+            SELECT id,group_id,school_id,official_id,source_year,relation_type,active,since_year,confidence
+            FROM school_group_memberships ORDER BY group_id,active DESC,relation_type
+        """)
+        for r in rows(db, """
+            SELECT group_id,
+                   sum(CASE WHEN active=1 THEN 1 ELSE 0 END) group_member_count,
+                   sum(CASE WHEN active=0 THEN 1 ELSE 0 END) historical_member_count
+            FROM school_group_memberships GROUP BY group_id
+        """):
+            by_id[r["group_id"]]["group_member_count"] = r["group_member_count"]
+            by_id[r["group_id"]]["historical_member_count"] = r["historical_member_count"]
+        for membership in school_group_memberships:
+            school = by_id[membership["school_id"]]
+            key = "school_group_ids" if membership["active"] else "historical_school_group_ids"
+            school.setdefault(key, []).append(membership["group_id"])
+            for link in school_campus_links:
+                if link["official_school_id"] == membership["school_id"] and link["official_id"] == membership["official_id"]:
+                    by_id[link["campus_id"]].setdefault(key, []).append(membership["group_id"])
     for entity in entities:
-        for key in ("official_years", "official_ids", "official_link_kinds"):
+        for key in ("official_years", "official_ids", "official_link_kinds", "school_group_ids", "historical_school_group_ids"):
             if key in entity:
                 entity[key] = list(dict.fromkeys(entity[key]))
     admissions = rows(db, "SELECT id,school_id,home_id,year,admission_type,active FROM admissions")
     return dict(meta=meta, entities=entities, admissions=admissions, school_campus_links=school_campus_links,
+                school_group_memberships=school_group_memberships,
                 sources=[source_with_status(r) for r in rows(db, "SELECT * FROM sources WHERE kind!='candidate_history' ORDER BY kind,label")])
 
 
@@ -247,16 +269,54 @@ def entity_detail(db, eid):
     linked_years = {(school_id, year) for school_id, _, year in linked_records}
     canonical_ids = list(dict.fromkeys([eid, *(r[0] for r in sorted(linked_records))]))
     placeholders = ",".join("?" for _ in canonical_ids)
+    group_profile = None
+    group_memberships = []
+    group_profiles = []
+    if has_table(db, "school_group_memberships"):
+        if entity["kind"] == "school_group":
+            profile_rows = rows(db, "SELECT * FROM school_groups WHERE entity_id=?", (eid,))
+            group_profile = unpack(profile_rows[0]) if profile_rows else None
+            membership_rows = rows(db, "SELECT * FROM school_group_memberships WHERE group_id=? ORDER BY active DESC,relation_type,official_id", (eid,))
+        else:
+            membership_rows = rows(db, f"SELECT * FROM school_group_memberships WHERE school_id IN ({placeholders}) ORDER BY active DESC,group_id", canonical_ids)
+        group_memberships = [unpack(r) for r in membership_rows]
+        group_ids = list(dict.fromkeys(r["group_id"] for r in group_memberships))
+        if group_ids:
+            group_placeholders = ",".join("?" for _ in group_ids)
+            group_profiles = [unpack(r) for r in rows(db, f"SELECT * FROM school_groups WHERE entity_id IN ({group_placeholders})", group_ids)]
+        for membership in group_memberships:
+            group = db.execute("SELECT name FROM entities WHERE id=?", (membership["group_id"],)).fetchone()
+            school = db.execute("SELECT name,lat,lng FROM entities WHERE id=?", (membership["school_id"],)).fetchone()
+            display = db.execute("""
+                SELECT l.campus_id,e.name,e.lat,e.lng FROM school_campus_links l JOIN entities e ON e.id=l.campus_id
+                WHERE l.official_school_id=? AND l.official_id=?
+                ORDER BY (l.year=?) DESC,(l.kind='portal_coordinate_match') DESC,(e.lat IS NOT NULL) DESC,coalesce(l.distance_m,999999)
+                LIMIT 1
+            """, (membership["school_id"], membership["official_id"], membership["source_year"])).fetchone()
+            membership["group_name"] = group[0] if group else membership["group_id"]
+            membership["official_school_id"] = membership["school_id"]
+            membership["display_school_id"] = display[0] if display else membership["school_id"]
+            membership["school_name"] = display[1] if display else (school[0] if school else membership["official_id"])
     # A campus bridge establishes a school identity only for its recorded year.
     # The selected entity's own historical records remain available in full.
     admissions = [unpack(r) for r in rows(db, f"SELECT * FROM admissions WHERE school_id IN ({placeholders}) OR home_id=? ORDER BY year DESC,admission_type", (*canonical_ids, eid))
                   if r["school_id"] == eid or r["home_id"] == eid or (r["school_id"], r["year"]) in linked_years]
-    posts = rows(db, "SELECT p.* FROM posts p JOIN post_places pp ON p.id=pp.post_id WHERE pp.entity_id=? ORDER BY (p.depth='detail_description') DESC,p.posted_date DESC", (eid,))
+    post_entity_ids = [eid]
+    if entity["kind"] == "school_group":
+        post_entity_ids.extend(r["official_school_id"] for r in group_memberships if r["active"])
+        post_entity_ids.extend(r["display_school_id"] for r in group_memberships if r["active"])
+    post_entity_ids = list(dict.fromkeys(post_entity_ids))
+    post_placeholders = ",".join("?" for _ in post_entity_ids)
+    posts = rows(db, f"""
+        SELECT DISTINCT p.* FROM posts p JOIN post_places pp ON p.id=pp.post_id
+        WHERE pp.entity_id IN ({post_placeholders})
+        ORDER BY (p.depth='detail_description') DESC,p.posted_date DESC
+    """, post_entity_ids)
     prices = [unpack(r) for r in rows(db, "SELECT * FROM prices WHERE entity_id=? ORDER BY coalesce(event_date,observed_at) DESC", (eid,))]
     policy = [unpack(r, ("school_ids",)) for r in rows(db, "SELECT * FROM policy_texts")]
     co = [unpack(r, ("post_ids",)) for r in rows(db, "SELECT * FROM co_mentions WHERE a=? OR b=?", (eid, eid))]
     nearby = []
-    if entity["lat"] is not None:
+    if entity["lat"] is not None and entity["kind"] != "school_group":
         opposite = "residential" if entity["kind"] == "school" else "school"
         for item in rows(db, "SELECT id,name,lat,lng,primary_school FROM entities WHERE kind=? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?", (
             opposite, entity["lat"] - .019, entity["lat"] + .019, entity["lng"] - .023, entity["lng"] + .023)):
@@ -272,6 +332,7 @@ def entity_detail(db, eid):
                 school_records=[unpack(r) for r in rows(db, f"SELECT * FROM school_records WHERE entity_id IN ({placeholders})", canonical_ids)
                                 if r["entity_id"] == eid or (r["entity_id"], r["official_id"], r["year"]) in linked_records],
                 admissions=admissions, posts=posts, prices=prices, co_mentions=co,
+                school_group=group_profile, school_groups=group_profiles, group_memberships=group_memberships,
                 projects=[unpack(r) for r in rows(db, 'SELECT * FROM projects WHERE entity_id=? ORDER BY observed_at DESC', (eid,))] if has_table(db, 'projects') else [],
                 market_snapshots=[unpack(r) for r in rows(db, 'SELECT * FROM market_snapshots WHERE entity_id=? ORDER BY observed_at DESC', (eid,))] if has_table(db, 'market_snapshots') else [],
                 school_links=school_links,

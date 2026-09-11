@@ -185,25 +185,28 @@ export function queryEntities(data,s,favorites=[],snapshot=null,today){
   const eligibleHomes=housingActive?new Set(data.entities.filter(e=>e.kind==='residential'&&matchesHousing(e,s,snapshot,today)).map(e=>e.id)):null;
   const eligibleSchools=housingActive?admissionSchoolIds({...data,admissions:data.admissions.filter(a=>eligibleHomes.has(a.home_id))},s):null;
   const matches=data.entities.filter(e=>{
+    const isGroup=e.kind==='school_group';
     const candidate=snapshot?snapshot[e.id]:e.candidate;
     if(s.district==='main'&&!MAIN_DISTRICTS.includes(e.district))return false;
     if(s.district&&s.district!=='main'&&e.district!==s.district)return false;
     if(s.kind!=='all'&&e.kind!==s.kind)return false;
     if(e.kind==='school'&&s.primaryOnly&&!e.primary_school)return false;
     if(q&&!searchMatches([e.name,...(e.aliases||[]),...(e.project_names||[]),...(canonicalNames.get(e.id)||[]),e.address,candidate?.plate,candidate?.name],q))return false;
-    if(s.schoolId&&!schoolHomes.has(e.id))return false;
-    if(s.officialOnly&&!(e.kind==='school'?officialSchoolIds.has(e.id):officialHomeIds.has(e.id)))return false;
-    if(housingActive&&!(e.kind==='school'?eligibleSchools.has(e.id):eligibleHomes.has(e.id)))return false;
+    if(s.schoolId&&(isGroup||!schoolHomes.has(e.id)))return false;
+    if(s.officialOnly&&!isGroup&&!(e.kind==='school'?officialSchoolIds.has(e.id):officialHomeIds.has(e.id)))return false;
+    if(housingActive&&(isGroup||!(e.kind==='school'?eligibleSchools.has(e.id):eligibleHomes.has(e.id))))return false;
     if(s.favoriteOnly&&!favoritesSet.has(e.id))return false;
-    if(s.located==='yes'&&!located(e))return false;
-    if(s.located==='no'&&located(e))return false;
-    if(s.viewportOnly&&!inside(e,s.bounds))return false;
-    if(s.rectangle&&!inside(e,s.rectangle))return false;
+    const groupAggregate=isGroup&&s.kind==='school_group';
+    if(!groupAggregate&&s.located==='yes'&&!located(e))return false;
+    if(!groupAggregate&&s.located==='no'&&located(e))return false;
+    if(!groupAggregate&&s.viewportOnly&&!inside(e,s.bounds))return false;
+    if(!groupAggregate&&s.rectangle&&!inside(e,s.rectangle))return false;
     return true;
   });
   const matchIds=new Set(matches.map(e=>e.id));
   const shadows=new Set(portalLinks.filter(l=>matchIds.has(l.campus_id)&&located(byId.get(l.campus_id))).map(l=>l.official_school_id));
-  return matches.filter(e=>located(e)||!shadows.has(e.id)||favoritesSet.has(e.id)).sort((a,b)=>Number(officialSchoolIds.has(b.id))-Number(officialSchoolIds.has(a.id))||
+  return matches.filter(e=>located(e)||!shadows.has(e.id)||favoritesSet.has(e.id)).sort((a,b)=>Number(b.kind==='school_group')-Number(a.kind==='school_group')||
+     (b.group_member_count||0)-(a.group_member_count||0)||Number(officialSchoolIds.has(b.id))-Number(officialSchoolIds.has(a.id))||
      Number(!!(snapshot?snapshot[b.id]:b.candidate))-Number(!!(snapshot?snapshot[a.id]:a.candidate))||
      (numeric((snapshot?snapshot[a.id]:a.candidate)?.rank)??9999)-(numeric((snapshot?snapshot[b.id]:b.candidate)?.rank)??9999)||
      (b.post_count||0)-(a.post_count||0)||a.name.localeCompare(b.name,'zh'));

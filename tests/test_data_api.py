@@ -45,6 +45,32 @@ class DataTests(unittest.TestCase):
         self.assertEqual(dict(self.db.execute("SELECT admission_type,count(*) FROM admissions GROUP BY admission_type")), {"户籍生":1426,"新杭州人":2275})
         self.assertEqual(self.db.execute("SELECT count(DISTINCT school_id) FROM admissions a JOIN entities e ON e.id=a.school_id WHERE e.district='拱墅区' AND a.year='2026'").fetchone()[0], 58)
 
+    def test_reviewed_school_groups_are_bidirectional_and_time_aware(self):
+        self.assertEqual(self.count("school_groups"), 20)
+        self.assertEqual(self.count("school_group_memberships"), 48)
+        self.assertEqual(dict(self.db.execute("SELECT active,count(*) FROM school_group_memberships GROUP BY active")), {0: 2, 1: 46})
+        self.assertEqual(self.db.execute("SELECT count(*) FROM school_group_memberships WHERE group_id='group:gongshu:daguan-primary' AND active=1").fetchone()[0], 5)
+        wenlan = dict(self.db.execute("""
+            SELECT group_id,active FROM school_group_memberships WHERE official_id='2133001673001'
+        """))
+        self.assertEqual(wenlan, {"group:gongshu:maiyuqiao": 0, "group:gongshu:wenlan": 1})
+        detail = server.entity_detail(self.db, "group:gongshu:daguan-primary")
+        self.assertEqual(detail["school_group"]["level_label"], "办学基础成熟")
+        self.assertEqual(len([row for row in detail["group_memberships"] if row["active"]]), 5)
+        self.assertTrue(all(row["display_school_id"] and row["school_name"] and row["evidence"] for row in detail["group_memberships"]))
+        member = detail["group_memberships"][0]
+        reverse = server.entity_detail(self.db, member["display_school_id"])
+        self.assertIn("group:gongshu:daguan-primary", [row["group_id"] for row in reverse["group_memberships"] if row["active"]])
+
+    def test_bootstrap_exposes_group_counts_and_school_membership_ids(self):
+        payload = server.bootstrap(self.db)
+        groups = [entity for entity in payload["entities"] if entity["kind"] == "school_group"]
+        self.assertEqual(len(groups), 20)
+        daguan = next(entity for entity in groups if entity["id"] == "group:gongshu:daguan-primary")
+        self.assertEqual(daguan["group_member_count"], 5)
+        self.assertEqual(len(payload["school_group_memberships"]), 48)
+        self.assertTrue(any("school_group_ids" in entity for entity in payload["entities"] if entity["kind"] == "school"))
+
     def test_price_grains_remain_separate(self):
         self.assertEqual(dict(self.db.execute("SELECT kind,count(*) FROM prices WHERE source_id IN ('deals','listing-base','listing-overlay') GROUP BY kind")), {"deal":1542,"listing":67,"reference":24})
         self.assertEqual(self.db.execute("SELECT max(event_date) FROM prices WHERE source_id='deals'").fetchone()[0], "2026-06-23")

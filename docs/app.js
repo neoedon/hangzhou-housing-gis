@@ -9,7 +9,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const num=(v,d=0)=>v==null||String(v).trim()===''||!Number.isFinite(Number(v))?'未知':Number(v).toLocaleString('zh-CN',{maximumFractionDigits:d});
 const text=v=>(v===null||v===undefined||v==='')?'未知':esc(v);
 const empty=(title,body)=>`<div class="empty"><strong>${esc(title)}</strong>${esc(body)}</div>`;
-const icon=e=>`<span class="entity-icon ${e.kind==='residential'?'home':'school'}" aria-hidden="true">${hi(e.kind==='school'?'school':'home',{size:18})}</span>`;
+const icon=e=>`<span class="entity-icon ${e.kind==='residential'?'home':e.kind==='school_group'?'group':'school'}" aria-hidden="true">${hi(e.kind==='school_group'?'layers':e.kind==='school'?'school':'home',{size:18})}</span>`;
 const sourceButton=(id,label='查看来源')=>`<button class="text-button" data-source="${esc(id)}">${esc(label)} ${hi('document')}</button>`;
 const href=(url,label)=>/^https?:\/\//.test(url||'')?`<a class="small-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)} ${hi('external')}</a>`:'';
 let data,byId,map,ready=false,allBaseLayers=[],filtered=[],ranked=[],pageSize=40,selected='',detail=null,detailMode='official',searchMode='places';
@@ -33,7 +33,11 @@ function getCandidate(e){return snapshotData?snapshotData[e.id]:e.candidate;}
 function officialRelations(id=selected){return relatedAdmissions(id===selected&&detail?{...data,admissions:detail.admissions}:data,id,state);}
 function currentRelationPlan(){
   const key=JSON.stringify([selected,detailTicket,!!detail,detailMode,state]);
-  if(relationCache.key!==key)relationCache={key,value:relationPlan(data,detail,selected,state,detailMode,{snapshot:snapshotData})};
+  if(relationCache.key!==key){
+    const group=byId.get(selected)?.kind==='school_group';
+    const items=group?(detail?.group_memberships||[]).filter(r=>r.active).map(r=>({id:r.display_school_id,note:r.relation_type,rows:1,evidenceKind:'official_school_group'})):null;
+    relationCache={key,value:group?{tier:'group',items,canScope:false,fallback:false,locatedCount:items.filter(r=>located(byId.get(r.id))).length,unlocatedCount:items.filter(r=>!located(byId.get(r.id))).length}:relationPlan(data,detail,selected,state,detailMode,{snapshot:snapshotData})};
+  }
   return relationCache.value;
 }
 function shownRelations(plan=currentRelationPlan()){
@@ -48,7 +52,8 @@ function syncInputs(){
   $$('[data-district]').forEach(b=>b.classList.toggle('active',b.dataset.district===state.district));
   $$('[data-search-mode]').forEach(b=>b.classList.toggle('active',b.dataset.searchMode===searchMode));
   $('#explorer').classList.toggle('ranking-mode',searchMode==='ranking');
-  $('#search').placeholder=searchMode==='posts'?`搜索 ${num(data.meta.metrics.posts)} 条本地原帖…`:searchMode==='ranking'?'在成交排行中搜索小区…':'搜索小学、小区、板块…';
+  $('#explorer').classList.toggle('group-mode',state.kind==='school_group'&&searchMode==='places');
+  $('#search').placeholder=searchMode==='posts'?`搜索 ${num(data.meta.metrics.posts)} 条本地原帖…`:searchMode==='ranking'?'在成交排行中搜索小区…':state.kind==='school_group'?'搜索教育集团或成员学校…':'搜索小学、教育集团、小区、板块…';
   $('#kind').disabled=searchMode==='ranking';
   $('#ranking-controls').hidden=searchMode!=='ranking';
   $('#rankingMetric').value=rankingMetric;
@@ -110,8 +115,8 @@ function renderQuery(){
     if(visiblePosts.length>pageSize)$('#results').insertAdjacentHTML('beforeend','<button class="load-more" id="load-more">继续显示</button>');
   }else{
     const n=filtered.filter(located).length;
-    $('#result-count').textContent=`${filtered.length.toLocaleString()} 个${state.kind==='school'?'学校 / 校区':state.kind==='residential'?(state.schoolId?'小区 / 地址':'小区及住宅线索'):'地点'}`;
-    $('#location-count').textContent=`${n.toLocaleString()} 个点位 · ${filtered.length-n} 个待定位`;
+    $('#result-count').textContent=`${filtered.length.toLocaleString()} 个${state.kind==='school'?'学校 / 校区':state.kind==='school_group'?'教育集团':state.kind==='residential'?(state.schoolId?'小区 / 地址':'小区及住宅线索'):'地点与集团'}`;
+    $('#location-count').textContent=state.kind==='school_group'?`${filtered.reduce((sum,e)=>sum+(e.group_member_count||0),0)} 所现行关联学校 · 选择集团后成员落图`:`${n.toLocaleString()} 个点位 · ${filtered.length-n} 个待定位`;
     $('#results').innerHTML=filtered.length?filtered.slice(0,pageSize).map(resultCard).join(''):empty('没有符合条件的地点',state.year==='2029'&&state.officialOnly?'本地资料没有 2029 官方招生名单。不会套用 2026 年记录。':'试试清除圈选、学校范围或预算条件。缺失资料默认不满足数值筛选。');
     if(filtered.length>pageSize)$('#results').insertAdjacentHTML('beforeend',`<button class="load-more" id="load-more">继续显示 · 还有 ${filtered.length-pageSize} 个</button>`);
   }
@@ -128,7 +133,8 @@ function rankingCard(row){
 function resultCard(e){
   const c=getCandidate(e);const annual=e.official_years?.includes(state.year);
   const affiliation=(data.school_campus_links||[]).some(l=>l.campus_id===e.id&&l.year===state.year&&l.kind==='documented_campus_affiliation');
-  return `<button class="result-card ${e.id===selected?'selected':''}" data-select="${esc(e.id)}" aria-pressed="${e.id===selected}">${icon(e)}<span class="entity-info"><span class="entity-name">${esc(c?.name||e.name)}</span><span class="entity-meta">${esc(e.district||'行政区待核')} · ${c?.plate?esc(c.plate):e.kind==='school'?'小学 / 校区':'住宅小区'}${e.post_count?` · ${e.post_count} 条原帖`:''}</span><span class="result-stats">${annual?`<span class="tag ${affiliation?'amber':''}">${affiliation?'校区沿革参考':esc(state.year)+' 官方档案'}</span>`:''}${c?`<span class="tag gray">候选 #${text(c.rank)}</span>`:''}${!located(e)?'<span class="tag amber">待定位</span>':''}${favorites.includes(e.id)?'<span class="tag">已收藏</span>':''}</span></span><span class="entity-arrow" aria-hidden="true">${hi('chevron-right')}</span></button>`;
+  const group=e.kind==='school_group';
+  return `<button class="result-card ${e.id===selected?'selected':''}" data-select="${esc(e.id)}" aria-pressed="${e.id===selected}">${icon(e)}<span class="entity-info"><span class="entity-name">${esc(c?.name||e.name)}</span><span class="entity-meta">${esc(e.district||'行政区待核')} · ${group?`教育集团 · ${num(e.group_member_count)} 所现行关联学校`:c?.plate?esc(c.plate):e.kind==='school'?'小学 / 校区':'住宅小区'}${e.post_count?` · ${e.post_count} 条原帖`:''}</span><span class="result-stats">${annual?`<span class="tag ${affiliation?'amber':''}">${affiliation?'校区沿革参考':esc(state.year)+' 官方档案'}</span>`:''}${group?'<span class="tag">官方档案关系</span>':''}${e.historical_member_count?`<span class="tag amber">${num(e.historical_member_count)} 条历史变更</span>`:''}${c?`<span class="tag gray">候选 #${text(c.rank)}</span>`:''}${!group&&!located(e)?'<span class="tag amber">待定位</span>':''}${favorites.includes(e.id)?'<span class="tag">已收藏</span>':''}</span></span><span class="entity-arrow" aria-hidden="true">${hi('chevron-right')}</span></button>`;
 }
 function postCard(p,links=false){
   return `<article class="post-card"><div class="post-meta">${p.depth==='detail_description'?'正文 / 说明':'仅索引，未深读'} · ${text(p.posted_date?.slice(0,10))}</div><h3>${esc(p.title||'无标题')}</h3>${p.description?`<p>${esc(p.description)}</p>`:''}${links?`<div class="place-links">${p.place_ids.filter(id=>byId.has(id)).map(id=>`<button data-select="${esc(id)}">${esc(byId.get(id).name)} ${hi('arrow-right')}</button>`).join('')}</div>${!p.place_ids.length?'<span class="tag amber">未提取可靠地点，不落图</span>':''}`:''}${href(p.url,'查看原帖')}</article>`;
@@ -161,7 +167,8 @@ async function selectEntity(id,{push=true,focus=true}={}){
   $('#detail').innerHTML='<div class="empty">正在连接地点与证据…</div>';
   map?.resize();updateMapInsets();renderQuery();
   try{const result=detailCache.get(id)||await get('/api/entity?id='+encodeURIComponent(id));detailCache.set(id,result);if(ticket!==detailTicket)return;detail=result;renderDetail();renderMap();
-    if(focus&&located(byId.get(id))&&map)map.easeTo({center:[byId.get(id).lng,byId.get(id).lat],zoom:Math.max(map.getZoom(),14.2),duration:450});
+    if(focus&&byId.get(id).kind==='school_group')fitRelations();
+    else if(focus&&located(byId.get(id))&&map)map.easeTo({center:[byId.get(id).lng,byId.get(id).lat],zoom:Math.max(map.getZoom(),14.2),duration:450});
   }
   catch(e){if(ticket===detailTicket)$('#detail').innerHTML=empty('详情未能读取',e.message)+'<button id="close-detail" class="load-more">关闭面板</button>';}
 }
@@ -175,7 +182,7 @@ async function back(){
   if($('.detail-body'))$('.detail-body').scrollTop=old.detailScroll;$('#results').scrollTop=old.listScroll;
   if(old.center)map?.jumpTo({center:old.center,zoom:old.zoom});
 }
-const tierLabels={"official":"年度名单关系","affiliation":"校区沿革参考","co":"同帖提及","nearby":"附近参考","district":"同区核验入口","none":"待补充核验"};
+const tierLabels={"official":"年度名单关系","group":"教育集团成员关系","affiliation":"校区沿革参考","co":"同帖提及","nearby":"附近参考","district":"同区核验入口","none":"待补充核验"};
 const tierNotes={"official":"名单按年度与招生类型筛选；地图名称匹配仍需核对地址、分期和楼栋。","affiliation":"依据校区沿革展示所属学校的名单参考，不确认该物理校区当年对口。","co":"仅表示原帖共同提及，不是招生关系。","nearby":"2 公里内对象中心的直线距离，不代表学区或步行距离。","district":"当前地点尚未完成直接挂接；以下为同区核验入口，不是对口结论。","none":"当前条件尚无可用核验线索；可调整筛选或查看来源，不能据此判断不对口。"};
 function relationListHTML(plan=currentRelationPlan()){
   const items=shownRelations(plan);
@@ -266,6 +273,30 @@ function policyDocument(p,e){
   const places=archive?(p.school_ids||[]).filter(id=>id!==e.id&&byId.has(id)):[];
   return `<details><summary>${esc(p.label)}</summary>${archive?'<p class="micro">本地保存的官方页面副本，非本轮原站复核。按文中年度、范围与自愿等条件对照，不生成确定对口连线。</p>':''}<div class="policy">${esc(p.body)}</div>${places.length?`<p class="micro">本档案涉及的其他地点；同一文档不代表彼此对口：</p><div class="place-links">${places.map(id=>`<button data-select="${esc(id)}">${esc(byId.get(id).name)} ${hi('arrow-right')}</button>`).join('')}</div>`:''}${sourceButton(p.source_id,'文本来源')}</details>`;
 }
+function schoolGroupSection(){
+  const memberships=detail.group_memberships||[];
+  if(!memberships.length)return `<section class="section"><div class="section-header"><h3>教育集团</h3><small>未找到已核验关系</small></div><p class="micro">当前资料库尚未识别该学校的集团隶属；这不等于学校没有集团属性。</p></section>`;
+  const profiles=new Map((detail.school_groups||[]).map(p=>[p.entity_id,p]));
+  const cards=active=>memberships.filter(m=>!!m.active===active).map(m=>{const p=profiles.get(m.group_id);return `<button class="group-link-card" data-select="${esc(m.group_id)}"><span><strong>${esc(m.group_name)}</strong><small>${esc(m.relation_type)}${m.since_year?` · ${esc(m.since_year)} 起`:''}</small>${p?`<span class="group-reference">${esc(p.level_label)} · ${esc(p.reputation_label)}</span>`:''}</span>${hi('arrow-right')}</button>`;}).join('');
+  const active=cards(true),historical=cards(false);
+  return `<section class="section school-groups"><div class="section-header"><h3>所属教育集团</h3><small>${memberships.filter(m=>m.active).length} 条现行关系</small></div>${active||'<p class="micro">没有已核验的现行集团关系。</p>'}${historical?`<details><summary>历史集团关系 · ${memberships.filter(m=>!m.active).length}${hi('chevron-down')}</summary><p class="micro">历史关系不作为当前隶属。点击可查看变更证据。</p>${historical}</details>`:''}<p class="micro">集团关系来自官方学校档案；不等于对口关系，也不替代当年招生范围。</p></section>`;
+}
+function groupProfileSection(e){
+  const p=detail.school_group||{},members=detail.group_memberships||[],active=members.filter(m=>m.active),historical=members.filter(m=>!m.active);
+  const memberCards=rows=>rows.map(m=>`<button class="group-member-card" data-select="${esc(m.display_school_id)}"><span><strong>${esc(m.school_name)}</strong><small>${esc(m.relation_type)}${m.since_year?` · ${esc(m.since_year)} 起`:''}${!m.active?' · 已结束':''}</small></span><span class="member-locate">${located(byId.get(m.display_school_id))?'地图有点位':'点位待核'} ${hi('arrow-right')}</span></button>`).join('');
+  return `<section class="section group-profile" data-testid="school-group-profile"><div class="section-header"><h3>集团概览</h3><small>${active.length} 所现行关联学校</small></div>
+    <div class="group-stat-grid"><article><span>现行成员</span><strong>${active.length}<small> 所</small></strong><small>本库已核验关系</small></article><article><span>成立 / 组建</span><strong>${esc(p.founded_year||'待核')}</strong><small>${esc(p.organization_model||'组织模式待核')}</small></article><article><span>关联讨论</span><strong>${detail.posts.length}<small> 条</small></strong><small>成员学校明确提及</small></article></div>
+    <div class="group-assessment-grid"><article><span>${hi('star')} 口碑参考</span><strong>${esc(p.reputation_label||'待补充')}</strong><p>${esc(p.reputation_summary||'暂无可核验的公开声誉线索。')}</p></article><article><span>${hi('school')} 办学水平参考</span><strong>${esc(p.level_label||'待补充')}</strong><p>${esc(p.level_summary||'暂无可核验的办学基础线索。')}</p></article></div>
+    <div class="notice warning">“口碑 / 水平”是基于官方档案中的办学年限、组织模式、师资与荣誉形成的研究摘要，不是官方评级、升学排名或入学保证。</div>
+    ${p.official_declared_scale?`<div class="group-scale"><strong>官方档案中的规模线索</strong><p>${esc(p.official_declared_scale)}</p></div>`:''}
+    <div class="relation-tools"><button id="fit-relations">${hi('locate')} 地图看全成员</button><button id="show-relations" class="${state.markers==='relations'?'active':''}" aria-pressed="${state.markers==='relations'}">${state.markers==='relations'?'恢复结果点位':'只看集团成员'}</button></div>
+  </section><section class="section"><div class="section-header"><h3>现行成员学校</h3><small>${active.filter(m=>located(byId.get(m.display_school_id))).length} 所可落图</small></div><div class="group-member-list">${memberCards(active)}</div>${historical.length?`<details><summary>历史成员与变更 · ${historical.length}${hi('chevron-down')}</summary><p class="micro">以下关系已结束，不计入当前集团学校数。</p>${memberCards(historical)}</details>`:''}</section>`;
+}
+function renderGroupEvidence(e){
+  const p=detail.school_group||{},members=detail.group_memberships||[];
+  return `<section class="section"><h3>集团身份与判断口径</h3><dl class="kv"><dt>集团 ID</dt><dd>${esc(e.id)}</dd><dt>地理表达</dt><dd>集团没有单一坐标；地图展示已核验成员学校点位。</dd><dt>组织模式</dt><dd>${esc(p.organization_model||'待核')}</dd><dt>领衔学校 ID</dt><dd>${esc(p.lead_school_id||'待核')}</dd></dl>${href(p.payload?.external_source_url,'集团官方介绍')}${sourceButton(p.source_id)}</section>
+  <section class="section"><div class="section-header"><h3>逐校关系证据</h3><small>${members.length} 条</small></div>${members.map(m=>`<details><summary>${esc(m.school_name)} · ${m.active?'现行':'历史'}${hi('chevron-down')}</summary><dl class="kv"><dt>关系类型</dt><dd>${esc(m.relation_type)}</dd><dt>官方编号</dt><dd>${esc(m.official_id)}</dd><dt>档案年度</dt><dd>${esc(m.source_year||'待核')}</dd><dt>原文命中</dt><dd>${esc(m.evidence)}</dd></dl>${sourceButton(m.source_id)}</details>`).join('')}</section>`;
+}
 function renderEvidence(e){
   const links=(detail.school_links||[]).filter(l=>l.year===state.year&&(l.campus_id===e.id||l.official_school_id===e.id));
   const linkedIds=new Set(links.map(l=>l.official_school_id));
@@ -279,25 +310,25 @@ function renderEvidence(e){
 }
 function renderDetail(){
   if(!selected||!detail)return;
-  const e=byId.get(selected),school=e.kind==='school';
+  const e=byId.get(selected),school=e.kind==='school',group=e.kind==='school_group';
   const ownRecord=detail.school_records.find(r=>r.year===state.year&&r.entity_id===selected);
-  const residentialAddress=!school?communityProfile(e,detail).fields.find(item=>item.label==='楼盘位置')?.value:null;
+  const residentialAddress=!school&&!group?communityProfile(e,detail).fields.find(item=>item.label==='楼盘位置')?.value:null;
   // A linked institution's address must never overwrite the selected physical campus.
-  const address=e.address||residentialAddress||ownRecord?.payload.address||(school?'当前校区详细地址待核实':'详细地址待核实');
+  const address=group?`${e.district} · 无单一地理点，以成员学校落图`:e.address||residentialAddress||ownRecord?.payload.address||(school?'当前校区详细地址待核实':'详细地址待核实');
   const oldScroll=$('.detail-body')?.scrollTop||0,focusId=$('#detail').contains(document.activeElement)?document.activeElement.id:'';
-  const tabs=[['overview',school?'关联':'概览'],...(!school?[['housing','价格行情']]:[]),...((detail.projects||[]).length?[['projects','楼盘档案']]:[]),['posts',`原帖 ${detail.posts.length}`],['sources','依据']];
+  const tabs=[['overview',group?'集团概览':school?'关联':'概览'],...(!school&&!group?[['housing','价格行情']]:[]),...(!group&&(detail.projects||[]).length?[['projects','楼盘档案']]:[]),['posts',`原帖 ${detail.posts.length}`],['sources','依据']];
   if(!tabs.some(([id])=>id===detailTab))detailTab='overview';
   const outside=!filtered.some(x=>x.id===selected);
-  const content=detailTab==='overview'?`${school?'':communityProfileSection(e)}${school?'':marketSummarySection(e)}${(detail.projects||[]).length?`<button class="load-more" data-detail-tab="projects">${hi('home')} 楼盘档案 · 开发商、销售状态与许可证</button>`:''}${outside?'<p class="detail-compact-note">选中地点独立保留，不受左侧筛选隐藏。</p>':''}${!located(e)?'<div class="notice warning">当前地点待定位；关联资料仍可查看，有坐标的对象可单独落图。</div>':''}${renderRelations()}`:
+  const content=detailTab==='overview'?group?groupProfileSection(e):`${school?schoolGroupSection():communityProfileSection(e)}${school?'':marketSummarySection(e)}${(detail.projects||[]).length?`<button class="load-more" data-detail-tab="projects">${hi('home')} 楼盘档案 · 开发商、销售状态与许可证</button>`:''}${outside?'<p class="detail-compact-note">选中地点独立保留，不受左侧筛选隐藏。</p>':''}${!located(e)?'<div class="notice warning">当前地点待定位；关联资料仍可查看，有坐标的对象可单独落图。</div>':''}${renderRelations()}`:
     detailTab==='housing'?priceSection()+marketSnapshotsSection()+candidateSection(e):
     detailTab==='projects'?projectSection():
-    detailTab==='posts'?`<section class="section"><div class="section-header"><h3>原帖与观察</h3><small>${detail.posts.length} 条</small></div>${detail.posts.length?detail.posts.map(p=>postCard(p)).join(''):empty('未提取到明确提及该地点的原帖','可在左侧切换“原帖正文 / 标题”，检索本地全库。')}${sourceButton('posts')}</section>`:renderEvidence(e);
-  $('#detail').innerHTML=`<div class="detail-header"><div class="detail-nav"><button class="back" id="back-detail">${hi('arrow-left')} ${viewStack.length?'上一地点':'返回地图'}</button><span>${esc(e.district||'区属待核')}</span><button id="inspector-collapse" class="inspector-collapse" aria-expanded="${!document.body.classList.contains('detail-collapsed')}" aria-label="展开或收起地点详情">${hi(document.body.classList.contains('detail-collapsed')?'chevron-up':'chevron-down')}${document.body.classList.contains('detail-collapsed')?'展开':'收起'}</button><button id="close-detail" aria-label="关闭地点详情">${hi('close')}</button></div><div class="detail-identity"><span class="eyebrow">${school?'学校 / 校区':'住宅 / 小区'}</span><h2>${esc(e.name)}</h2><div class="address">${esc(address)}${!located(e)?' · 待定位':''}</div></div><div class="detail-actions"><button id="locate-entity" ${located(e)?'':'disabled'}>${hi('locate')} 地图定位</button><button id="favorite-entity" class="${favorites.includes(e.id)?'active':''}" aria-pressed="${favorites.includes(e.id)}">${hi(favorites.includes(e.id)?'check':'star')} ${favorites.includes(e.id)?'已收藏':'收藏'}</button>${!school?`<button id="compare-entity" class="${compare.includes(e.id)?'active':''}" aria-pressed="${compare.includes(e.id)}">${hi('compare')} ${compare.includes(e.id)?'移出比较':'比较'}</button>`:''}</div></div>
+    detailTab==='posts'?`<section class="section"><div class="section-header"><h3>${group?'成员学校的关联原帖':'原帖与观察'}</h3><small>${detail.posts.length} 条</small></div>${detail.posts.length?detail.posts.map(p=>postCard(p)).join(''):empty('未提取到明确提及该地点的原帖','可在左侧切换“原帖正文 / 标题”，检索本地全库。')}${sourceButton('posts')}</section>`:group?renderGroupEvidence(e):renderEvidence(e);
+  $('#detail').innerHTML=`<div class="detail-header"><div class="detail-nav"><button class="back" id="back-detail">${hi('arrow-left')} ${viewStack.length?'上一地点':'返回地图'}</button><span>${esc(e.district||'区属待核')}</span><button id="inspector-collapse" class="inspector-collapse" aria-expanded="${!document.body.classList.contains('detail-collapsed')}" aria-label="展开或收起地点详情">${hi(document.body.classList.contains('detail-collapsed')?'chevron-up':'chevron-down')}${document.body.classList.contains('detail-collapsed')?'展开':'收起'}</button><button id="close-detail" aria-label="关闭地点详情">${hi('close')}</button></div><div class="detail-identity"><span class="eyebrow">${group?'教育集团':school?'学校 / 校区':'住宅 / 小区'}</span><h2>${esc(e.name)}</h2><div class="address">${esc(address)}${!group&&!located(e)?' · 待定位':''}</div></div><div class="detail-actions"><button id="locate-entity" ${group?(relatedIds().some(id=>located(byId.get(id)))?'':'disabled'):(located(e)?'':'disabled')}>${hi('locate')} ${group?'地图看全成员':'地图定位'}</button><button id="favorite-entity" class="${favorites.includes(e.id)?'active':''}" aria-pressed="${favorites.includes(e.id)}">${hi(favorites.includes(e.id)?'check':'star')} ${favorites.includes(e.id)?'已收藏':'收藏'}</button>${!school&&!group?`<button id="compare-entity" class="${compare.includes(e.id)?'active':''}" aria-pressed="${compare.includes(e.id)}">${hi('compare')} ${compare.includes(e.id)?'移出比较':'比较'}</button>`:''}</div></div>
   <div class="detail-tabs" role="tablist" aria-label="地点资料">${tabs.map(([id,label])=>`<button id="detail-tab-${id}" role="tab" aria-selected="${detailTab===id}" aria-controls="detail-panel" tabindex="${detailTab===id?0:-1}" data-detail-tab="${id}" class="${detailTab===id?'active':''}">${label}</button>`).join('')}</div>
   <div class="detail-body"><div id="detail-panel" class="detail-panel" role="tabpanel" aria-labelledby="detail-tab-${detailTab}" data-detail-panel="${detailTab}">${content}</div></div>`;
   $('.detail-body').scrollTop=oldScroll;
   if(focusId)document.getElementById(focusId)?.focus({preventScroll:true});
-  if(detailTab==='overview')updateRelationList();
+  if(detailTab==='overview'&&!group)updateRelationList();
   updateMapInsets();
 }
 
@@ -373,9 +404,10 @@ function renderMap(){
   map.setFilter('gis-labels',labelFilter===true?null:labelFilter);
   const outside=selection&&!filtered.some(e=>e.id===selected)?' · 保留当前选中':'';
   const rankedLocated=ranked.filter(row=>located(row.entity)).length,topRankedLocated=ranked.slice(0,20).filter(row=>located(row.entity)).length;
-  $('#map-context-text').textContent=searchMode==='ranking'?`成交排行 ${rankedLocated} 个小区可落图 · 前 20 名已定位 ${topRankedLocated} 个${outside}`:`结果与关联 ${drawn.size} 个点 · ${lines.length} 条连线${outside}${surroundingHomes.length?' · 周边小区名开启':''}`;
+  const groupSelected=selection?.kind==='school_group';
+  $('#map-context-text').textContent=searchMode==='ranking'?`成交排行 ${rankedLocated} 个小区可落图 · 前 20 名已定位 ${topRankedLocated} 个${outside}`:groupSelected?`${selection.name} · ${related.filter(located).length}/${related.length} 所成员学校已落图${surroundingHomes.length?' · 周边小区名开启':''}`:`结果与关联 ${drawn.size} 个点 · ${lines.length} 条连线${outside}${surroundingHomes.length?' · 周边小区名开启':''}`;
   $('#relationship-legend').hidden=!plan||!related.length;
-  $('#relationship-legend').innerHTML=plan?`<span class="legend-swatch" data-tier="${plan.tier}"></span><span>${tierLabels[plan.tier]}${plan.tier!=='official'?' · 非对口结论':' · 地址待核'}</span>`:'';
+  $('#relationship-legend').innerHTML=plan?`<span class="legend-swatch" data-tier="${plan.tier}"></span><span>${tierLabels[plan.tier]}${plan.tier==='group'?' · 来自官方学校档案':plan.tier!=='official'?' · 非对口结论':' · 地址待核'}</span>`:'';
   renderRectangle(state.rectangle);
 }
 function renderRectangle(b){
@@ -530,7 +562,8 @@ async function showSources(focus=''){
     }
     return;
   }
-  content.innerHTML=`<div class="sources-toolbar"><label for="sources-search">搜索来源目录</label><div class="source-search-row"><input id="sources-search" type="search" autocomplete="off" placeholder="学校、小区、来源名称、年份或网址" aria-describedby="sources-search-help"><button id="sources-clear" type="button" disabled>清空</button></div><p id="sources-search-help" class="micro">来源目录不等于完整来源总量；逐条原帖来源可从原帖入口查看。搜索不改变地图筛选。</p><div class="source-pagination"><p id="sources-result-count" role="status" aria-live="polite" aria-atomic="true"></p><nav aria-label="来源分页"><button id="sources-prev" type="button">上一页</button><span id="sources-page-label"></span><button id="sources-next" type="button">下一页</button></nav></div></div><details class="source-coverage"><summary>全库资料覆盖与判断边界</summary>${sourceCoverage()}</details><div id="sources-cards" tabindex="-1"></div>`;
+  content.innerHTML=`<div class="sources-toolbar"><label for="sources-search">搜索来源目录</label><div class="source-search-row"><div class="source-search-shell"><span data-icon="search" aria-hidden="true"></span><input id="sources-search" type="search" autocomplete="off" placeholder="学校、集团、小区、来源名称、年份或网址" aria-describedby="sources-search-help"></div><button id="sources-clear" type="button" disabled>清空</button></div><p id="sources-search-help" class="micro">来源目录不等于完整来源总量；逐条原帖来源可从原帖入口查看。搜索不改变地图筛选。</p><div class="source-pagination"><p id="sources-result-count" role="status" aria-live="polite" aria-atomic="true"></p><nav aria-label="来源分页"><button id="sources-prev" type="button">上一页</button><span id="sources-page-label"></span><button id="sources-next" type="button">下一页</button></nav></div></div><details class="source-coverage"><summary>全库资料覆盖与判断边界</summary>${sourceCoverage()}</details><div id="sources-cards" tabindex="-1"></div>`;
+  if(typeof enhanceIcons==='function')enhanceIcons(content);
   const input=$('#sources-search');
   const search=()=>{
     if(!current()||sourceView.query===input.value)return;
@@ -578,6 +611,7 @@ function bindEvents(){
     input.addEventListener('change',()=>{let value=input.type==='checkbox'?input.checked:input.value;const patch={[key]:value};
       if(key==='viewportOnly'&&value&&map){const b=map.getBounds();patch.bounds=[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()];}
       if(key==='kind'||key==='district')patch.schoolId='';
+      if(key==='kind'&&value==='school_group')Object.assign(patch,{officialOnly:false,primaryOnly:false,candidateOnly:false,located:'all',viewportOnly:false,rectangle:null,minBudget:'',maxBudget:'',minArea:'',maxArea:'',builtAfter:'',dealFrom:'',dealTo:'',freshOnly:false});
       if(['dealFrom','dealTo'].includes(key)&&value)patch.priceKind='deal';
       change(patch,{fit:key==='district'&&!state.viewportOnly});if(['dealFrom','dealTo'].includes(key))renderDetail();
     });
@@ -620,7 +654,7 @@ function bindEvents(){
       case 'inspector-collapse':document.body.classList.toggle('detail-collapsed');renderDetail();break;
       case 'close-detail':closeDetail();break;
       case 'back-detail':back();break;
-      case 'locate-entity':{const x=byId.get(selected);if(located(x))map?.easeTo({center:[x.lng,x.lat],zoom:16,duration:400});break;}
+      case 'locate-entity':{const x=byId.get(selected);if(x?.kind==='school_group')fitRelations();else if(located(x))map?.easeTo({center:[x.lng,x.lat],zoom:16,duration:400});break;}
       case 'favorite-entity':favorites=favorites.includes(selected)?favorites.filter(id=>id!==selected):[...favorites,selected];save('favorites',favorites);renderDetail();renderQuery();break;
       case 'compare-entity':if(compare.length===4&&!compare.includes(selected)){toast('最多比较 4 个小区，请先移除一个。');break;}compare=toggleCompare(compare,selected);save('compare',compare);syncInputs();renderDetail();renderMap();break;
       case 'compare-button':showCompare();break;

@@ -11,6 +11,14 @@ test('normalization keeps campus and phase qualifiers',()=>{assert.equal(normali
 test('minimum text size preserves zoom expression and clamps outputs',()=>assert.deepEqual(minimumTextSize(['interpolate',['linear'],['zoom'],8,9,12,11,17,16]),['interpolate',['linear'],['zoom'],8,12,12,12,17,16]));
 test('blank or negative numbers are not price zero',()=>{assert.equal(numeric(''),null);assert.equal(numeric(null),null);assert.equal(numeric(-1),null);assert.equal(numeric('0'),0);});
 test('default filters schools in Binjiang only',()=>assert.deepEqual(q(),['s']));
+test('education groups remain searchable as district aggregates and ignore point-only filters',()=>{
+  const group={id:'group:binjiang:test',name:'滨江实验教育集团',aliases:['实验集团'],kind:'school_group',district:'滨江区',lat:null,lng:null,group_member_count:3};
+  const groupData={...data,entities:[...data.entities,group]};
+  const run=patch=>queryEntities(groupData,{...DEFAULTS,kind:'school_group',...patch}).map(e=>e.id);
+  assert.deepEqual(run({query:'实验集团'}),[group.id]);
+  assert.deepEqual(run({located:'yes',viewportOnly:true,bounds:[0,0,1,1],rectangle:[0,0,1,1]}),[group.id]);
+  assert.deepEqual(run({maxBudget:'500'}),[]);
+});
 test('local aliases and name search',()=>assert.deepEqual(q({kind:'all',query:'闻 涛'}),['s','h']));
 test('source project names are searchable without renaming the geographic entity',()=>{
   const projectData={...data,entities:[{...house,project_names:['滨江·映运轩']} ]};

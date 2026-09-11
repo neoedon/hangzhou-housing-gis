@@ -41,6 +41,7 @@ small{font-size:12px;font-weight:400}
 .search-tabs button{flex:1;min-width:0;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;min-height:31px;padding:5px 2px;font-size:12px;color:var(--muted);white-space:nowrap}
 .search-tabs button.active{color:var(--green);border-bottom-color:var(--green);font-weight:650;background:none}
 .explorer.ranking-mode .admission-fields,.explorer.ranking-mode .official-filter{display:none}
+.explorer.group-mode .admission-fields,.explorer.group-mode .official-filter,.explorer.group-mode #advanced{display:none}
 .district-presets{display:flex;gap:4px;margin:15px 0 13px;padding:3px;border:1px solid #e0e7dc;border-radius:9px;background:#f0f4eb}
 .district-presets button{font-size:12px;flex:1;min-width:0;min-height:30px;padding:5px 2px;border-color:transparent;border-radius:6px;background:transparent;color:#596b5b;white-space:nowrap}
 .district-presets button.active{background:#fff;color:#145e49;border-color:#d1dfca;box-shadow:0 1px 3px #2c4b2910;font-weight:650}
@@ -87,6 +88,7 @@ details[open]>summary>[data-icon=chevron-down],details[open]>summary>.summary-ch
 .ranking-value svg{flex:none}
 .entity-icon{width:32px;height:32px;margin-top:1px;display:grid;place-items:center;border:1px solid #e5c2bb;border-radius:9px;flex:none;color:#b04644;background:#fbefeb;font-size:13px}
 .entity-icon.home{color:#a97340;border-color:#e4d1b9;background:#fff8ec}
+.entity-icon.group{color:#5b5fa4;border-color:#d1d3eb;background:#f2f2fb}
 .entity-info{min-width:0;flex:1}
 .entity-name{display:block;font-size:14px;font-weight:650;line-height:1.6;color:#2d402b;overflow-wrap:anywhere}
 .entity-meta{font-size:12px;color:var(--muted);display:block;line-height:1.75;margin-top:2px}
@@ -98,6 +100,7 @@ details[open]>summary>[data-icon=chevron-down],details[open]>summary>.summary-ch
 .dot{height:6px;width:6px;display:inline-block;border-radius:50%}
 .dot.school{background:#c44545}
 .dot.home{background:var(--home)}
+.dot.group{background:#686db1}
 .dot.relation{background:#138c7c}
 .mono{font-family:ui-monospace,monospace;font-size:12px;margin-left:auto;color:#64716a}
 .map-stage{position:relative;flex:1;min-width:0;background:#e8eee1;overflow:hidden}
@@ -208,7 +211,12 @@ dialog.wide-dialog{width:min(1140px,calc(100vw - 32px))}
 .sources-toolbar{position:sticky;top:0;z-index:2;background:var(--paper);padding:0 0 12px;border-bottom:1px solid var(--line)}
 .sources-toolbar>label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}
 .source-search-row{display:flex;align-items:center;gap:8px}
-.source-search-row input{flex:1;min-width:0;width:100%;height:40px;font-size:14px}
+.source-search-shell{display:flex;align-items:center;gap:8px;flex:1;min-width:0;height:42px;padding:0 11px;border:1px solid #afc6b4;border-radius:10px;background:#fff;color:#567a66;box-shadow:0 2px 4px #254b2e06;transition:border-color .15s,box-shadow .15s}
+.source-search-shell:focus-within{border-color:#368569;box-shadow:0 0 0 3px #19856917}
+.source-search-shell>[data-icon]{display:grid;place-items:center;flex:none;width:18px;height:18px}
+.source-search-shell>[data-icon]>svg{display:block}
+.source-search-row input{flex:1;min-width:0;width:100%;height:40px;margin:0;padding:0;border:0;border-radius:0;outline:0;background:transparent;color:#2a3c30;font-size:14px;line-height:20px;appearance:none;-webkit-appearance:none}
+.source-search-row input::placeholder{color:#778179}
 .source-search-row input::-webkit-search-cancel-button{appearance:none;-webkit-appearance:none;display:none}
 .sources-toolbar .micro{margin:7px 0;font-size:12px}
 .source-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -377,10 +385,33 @@ input[type=date]{padding-inline:6px}
 .profile-evidence{display:flex;align-items:flex-start;gap:7px 10px;flex-wrap:wrap;margin-top:13px;padding:10px 11px;border-radius:8px;background:#f6f7f2;color:var(--muted);font-size:12px;line-height:1.65}
 .profile-evidence>span{flex:1 1 190px}
 .profile-evidence .text-button{flex:none}
+.school-groups .section-header{margin-bottom:10px}
+.group-link-card,.group-member-card{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin:0 0 7px;padding:10px 11px;border-color:#d9dced;background:#f8f8fd;text-align:left}
+.group-link-card:hover,.group-member-card:hover{border-color:#b9bddb;background:#f0f0fa}
+.group-link-card>span:first-child,.group-member-card>span:first-child{min-width:0}
+.group-link-card strong,.group-link-card small,.group-member-card strong,.group-member-card small{display:block;overflow-wrap:anywhere}
+.group-link-card strong,.group-member-card strong{color:#41486f;font-size:13px;line-height:1.55}
+.group-link-card small,.group-member-card small{margin-top:2px;color:#6b7082;font-size:12px;line-height:1.55}
+.group-reference{display:block;margin-top:6px;color:#5d648d;font-size:12px;line-height:1.55}
+.group-stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0}
+.group-stat-grid article{min-width:0;padding:10px;border:1px solid #dcddec;border-radius:9px;background:#f7f7fc}
+.group-stat-grid span,.group-stat-grid small{display:block;color:#707486;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.group-stat-grid strong{display:block;margin:3px 0;color:#484f7d;font-size:19px;line-height:1.3;overflow-wrap:anywhere}
+.group-stat-grid strong small{display:inline;color:inherit;font-size:12px;font-weight:400}
+.group-assessment-grid{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.group-assessment-grid article{padding:11px 12px;border:1px solid #d7daea;border-radius:10px;background:#f6f6fb}
+.group-assessment-grid article>span{display:flex;align-items:center;gap:6px;color:#62698e;font-size:12px;line-height:1.5}
+.group-assessment-grid strong{display:block;margin:5px 0;color:#3f4773;font-size:14px;line-height:1.55}
+.group-assessment-grid p,.group-scale p{color:#646b78;font-size:12px;line-height:1.75}
+.group-scale{margin:10px 0;padding:10px 11px;border-left:3px solid #8a8fc2;background:#f7f7fb}
+.group-scale strong{display:block;margin-bottom:3px;color:#4f567d;font-size:12px;line-height:1.5}
+.group-member-list{margin-top:9px}
+.member-locate{display:flex;align-items:center;gap:3px;flex:none;color:#6b7092;font-size:12px;white-space:nowrap}
 .relationship-summary{margin:0 0 12px;padding:12px;border:1px solid #d3e2ce;border-radius:10px;background:#f0f6ea;color:#3a6030;font-size:13px;line-height:1.8}
 .relationship-summary strong{color:#2f612f}
 .relationship-summary[data-tier=co],.relationship-summary[data-tier=nearby],.relationship-summary[data-tier=district]{border-color:#e4dcc2;background:#faf6ea;color:#786038}
 .relationship-summary[data-tier=affiliation]{border-color:#d5dced;background:#f1f3f9;color:#55648a}
+.relationship-summary[data-tier=group]{border-color:#d1d3eb;background:#f3f3fb;color:#555b91}
 .relationship-summary[data-tier=affiliation] strong{color:#55648a}
 .relationship-summary[data-tier=co] strong{color:#916a32}
 .relationship-summary[data-tier=nearby] strong,.relationship-summary[data-tier=district] strong{color:#786b53}
@@ -431,6 +462,7 @@ input[type=date]{padding-inline:6px}
 .legend-swatch{display:inline-block;flex:none;width:19px;height:0;border-top:2px solid var(--teal);vertical-align:middle}
 .legend-swatch[data-tier=official]{border-color:#147968}
 .legend-swatch[data-tier=affiliation],.legend-swatch[data-tier=campus]{border-color:#636fab;border-top-style:dashed}
+.legend-swatch[data-tier=group]{border-color:#686db1}
 .legend-swatch[data-tier=co]{border-color:#a47630;border-top-style:dashed}
 .legend-swatch[data-tier=nearby],.legend-swatch[data-tier=district]{border-color:#8e9890;border-top-style:dotted}
 
@@ -453,6 +485,7 @@ input[type=date]{padding-inline:6px}
 .maplibregl-ctrl-attrib summary.maplibregl-ctrl-attrib-button::after{content:none}
 .maplibregl-ctrl-attrib summary.maplibregl-ctrl-attrib-button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px #3c8655}
 .maplibregl-ctrl-attrib summary.maplibregl-ctrl-attrib-button:hover{background-color:#edf5e4}
+.maplibregl-ctrl-attrib summary.maplibregl-ctrl-attrib-button>svg{position:absolute;top:50%;left:50%;display:block;flex:none;width:16px!important;height:16px!important;margin:0;transform:translate(-50%,-50%)!important}
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner{max-width:100%;max-height:32px;overflow-y:auto;overflow-wrap:anywhere;font-size:12px;line-height:16px}
 .maplibregl-ctrl-attrib a{color:#4b6142!important;font-size:12px!important}
 .maplibregl-ctrl-attrib a:hover{text-decoration:underline}

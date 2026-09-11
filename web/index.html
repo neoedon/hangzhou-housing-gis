@@ -5,10 +5,10 @@
 <main class="workspace">
   <aside class="explorer" id="explorer" aria-label="地图查询">
     <div class="explorer-top"><div class="eyebrow">EXPLORE HANGZHOU</div><h1>学校与居住</h1><p class="subtle">选学校，看关联小区；选小区，查入学依据。</p>
-      <div class="search-box"><span data-icon="search" aria-hidden="true"></span><input id="search" type="search" placeholder="搜索小学、小区、板块…" aria-label="本地搜索" aria-keyshortcuts="/ Control+k Meta+k" autocomplete="off"><button id="search-clear" class="search-clear" aria-label="清空搜索" title="清空搜索" data-icon="close" hidden></button><button id="search-shortcut" class="search-shortcut" aria-label="聚焦本地搜索" title="搜索（/ 或 ⌘ / Ctrl + K）">/</button></div>
+      <div class="search-box"><span data-icon="search" aria-hidden="true"></span><input id="search" type="search" placeholder="搜索小学、教育集团、小区、板块…" aria-label="本地搜索" aria-keyshortcuts="/ Control+k Meta+k" autocomplete="off"><button id="search-clear" class="search-clear" aria-label="清空搜索" title="清空搜索" data-icon="close" hidden></button><button id="search-shortcut" class="search-shortcut" aria-label="聚焦本地搜索" title="搜索（/ 或 ⌘ / Ctrl + K）">/</button></div>
       <div class="search-tabs" role="group" aria-label="查询视图"><button data-search-mode="places" class="active">地点</button><button data-search-mode="posts">原帖正文 / 标题</button><button data-search-mode="ranking">成交排行</button></div>
       <div class="district-presets" role="group" aria-label="重点地区"><button data-district="滨江区" class="active">滨江</button><button data-district="拱墅区">拱墅</button><button data-district="main">主城四区</button><button data-district="">八区</button></div>
-      <div class="field-row"><label>行政区<select id="district"><option value="">八区全部</option><option value="main">主城四区</option><option>滨江区</option><option>拱墅区</option><option>西湖区</option><option>上城区</option><option>萧山区</option><option>余杭区</option><option>临平区</option><option>钱塘区</option></select></label><label>查询对象<select id="kind"><option value="school">小学 / 校区</option><option value="residential">小区</option><option value="all">全部地点</option></select></label></div>
+      <div class="field-row"><label>行政区<select id="district"><option value="">八区全部</option><option value="main">主城四区</option><option>滨江区</option><option>拱墅区</option><option>西湖区</option><option>上城区</option><option>萧山区</option><option>余杭区</option><option>临平区</option><option>钱塘区</option></select></label><label>查询对象<select id="kind"><option value="school">小学 / 校区</option><option value="school_group">教育集团</option><option value="residential">小区</option><option value="all">全部地点与集团</option></select></label></div>
       <div class="field-row admission-fields"><label>招生年度<select id="year"><option>2026</option><option>2024</option><option>2029</option></select></label><label>招生类型<select id="admission"><option value="all">全部类型</option><option>户籍生</option><option>新杭州人</option></select></label></div>
       <div class="quick-checks"><label class="official-filter"><input type="checkbox" id="officialOnly">仅当前类型官方关系</label><label><input type="checkbox" id="favoriteOnly">我的收藏</label></div>
       <div id="scope-chip" class="scope-chip" hidden></div>
@@ -29,7 +29,7 @@
     <div id="query-feedback" class="query-feedback" role="status" hidden></div>
     <div class="result-heading"><div><strong id="result-count">正在载入</strong><small id="location-count"></small></div><button id="reset" class="text-button">重置筛选</button></div>
     <div id="results" class="results" aria-live="polite"></div>
-    <div class="explorer-footer"><span class="dot school"></span>学校 <span class="dot home"></span>小区 <span class="dot relation"></span>关联突出 <span class="mono">WGS84</span></div>
+    <div class="explorer-footer"><span class="dot school"></span>学校 <span class="dot group"></span>集团 <span class="dot home"></span>小区 <span class="dot relation"></span>关联 <span class="mono">WGS84</span></div>
   </aside>
   <section class="map-stage" aria-label="杭州 GIS 地图">
     <div id="map"></div>

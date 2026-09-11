@@ -88,6 +88,8 @@ CREATE TABLE candidates(id TEXT PRIMARY KEY,entity_id TEXT REFERENCES entities(i
 CREATE TABLE school_records(id TEXT PRIMARY KEY,entity_id TEXT REFERENCES entities(id),source_id TEXT REFERENCES sources(id),year TEXT,official_id TEXT,payload TEXT);
 CREATE TABLE admissions(id TEXT PRIMARY KEY,school_id TEXT REFERENCES entities(id),home_id TEXT REFERENCES entities(id),source_id TEXT REFERENCES sources(id),year TEXT,admission_type TEXT,active INTEGER,payload TEXT);
 CREATE TABLE school_campus_links(id TEXT PRIMARY KEY,campus_id TEXT REFERENCES entities(id),official_school_id TEXT REFERENCES entities(id),official_id TEXT,source_id TEXT REFERENCES sources(id),year TEXT,kind TEXT,confidence TEXT,distance_m REAL,payload TEXT);
+CREATE TABLE school_groups(entity_id TEXT PRIMARY KEY REFERENCES entities(id),source_id TEXT REFERENCES sources(id),lead_school_id TEXT REFERENCES entities(id),founded_year TEXT,organization_model TEXT,official_declared_scale TEXT,reputation_label TEXT,reputation_summary TEXT,level_label TEXT,level_summary TEXT,payload TEXT);
+CREATE TABLE school_group_memberships(id TEXT PRIMARY KEY,group_id TEXT REFERENCES entities(id),school_id TEXT REFERENCES entities(id),source_id TEXT REFERENCES sources(id),official_id TEXT,source_year TEXT,relation_type TEXT,active INTEGER,since_year TEXT,confidence TEXT,evidence TEXT,payload TEXT);
 CREATE TABLE posts(id TEXT PRIMARY KEY,title TEXT,description TEXT,depth TEXT,posted_date TEXT,observed_at TEXT,url TEXT,district TEXT,topics TEXT);
 CREATE TABLE post_places(post_id TEXT REFERENCES posts(id),entity_id TEXT REFERENCES entities(id),PRIMARY KEY(post_id,entity_id));
 CREATE TABLE co_mentions(a TEXT REFERENCES entities(id),b TEXT REFERENCES entities(id),post_ids TEXT,distance REAL,PRIMARY KEY(a,b));
@@ -100,6 +102,8 @@ CREATE INDEX idx_admissions_school ON admissions(school_id,year,admission_type);
 CREATE INDEX idx_admissions_home ON admissions(home_id,year,admission_type);
 CREATE INDEX idx_school_campus ON school_campus_links(campus_id,year);
 CREATE INDEX idx_school_canonical ON school_campus_links(official_school_id,year);
+CREATE INDEX idx_school_group_member ON school_group_memberships(school_id,active);
+CREATE INDEX idx_school_group_group ON school_group_memberships(group_id,active);
 CREATE INDEX idx_prices_entity ON prices(entity_id,event_date);
 CREATE INDEX idx_post_places_entity ON post_places(entity_id);
 CREATE INDEX idx_candidates_entity ON candidates(entity_id);
@@ -359,10 +363,13 @@ class Builder:
 
         from admission_enrichment import integrate
         enriched_admissions = integrate(self)
+        from school_group_import import integrate as integrate_school_groups
+        school_group_metrics = integrate_school_groups(self)
         from incremental_import import integrate as integrate_incremental
         increments = integrate_incremental(self)
         metrics = {table: self.db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in (
-            "entities", "candidates", "school_records", "admissions", "school_campus_links", "posts", "post_places", "co_mentions", "prices", "projects", "market_snapshots", "policy_texts", "history", "sources")}
+            "entities", "candidates", "school_records", "admissions", "school_campus_links", "school_groups", "school_group_memberships", "posts", "post_places", "co_mentions", "prices", "projects", "market_snapshots", "policy_texts", "history", "sources")}
+        metrics['school_group_catalog'] = school_group_metrics
         metrics['incremental'] = increments
         metrics["post_details"] = self.db.execute("SELECT count(*) FROM posts WHERE depth='detail_description'").fetchone()[0]
         metrics["located_entities"] = self.db.execute("SELECT count(*) FROM entities WHERE lat IS NOT NULL").fetchone()[0]

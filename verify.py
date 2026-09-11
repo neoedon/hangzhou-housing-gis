@@ -25,6 +25,28 @@ for label, command in (
 
 receipt = json.loads((APP / "data/build_receipt.json").read_text())
 database_hash = hashlib.sha256((APP / "data/housing.sqlite").read_bytes()).hexdigest()
+profile_result = subprocess.run(
+    [sys.executable, "scripts/audit_profile_completeness.py"],
+    cwd=APP, capture_output=True, text=True, timeout=60,
+)
+(QA / "community_profile_completeness.log").write_text(profile_result.stdout + profile_result.stderr)
+try:
+    profile_audit = json.loads(profile_result.stdout)
+except json.JSONDecodeError:
+    profile_audit = {}
+checks.append({
+    "name": "community_profile_completeness",
+    "passed": bool(
+        profile_result.returncode == 0
+        and profile_audit.get("acceptance", {}).get("passed") is True
+        and not profile_audit.get("individual_failures")
+    ),
+    "profiles": profile_audit.get("overall", {}).get("profiles"),
+    "missing_rate": profile_audit.get("overall", {}).get("missing_rate"),
+    "binjiang_missing_rate": profile_audit.get("districts", {}).get("滨江区", {}).get("missing_rate"),
+    "gongshu_missing_rate": profile_audit.get("districts", {}).get("拱墅区", {}).get("missing_rate"),
+    "log": "community_profile_completeness.log",
+})
 notebook = json.loads((QA / "data_validation.ipynb").read_text())
 cells = [c for c in notebook["cells"] if c["cell_type"] == "code"]
 checks.append({"name":"executed_notebook","passed":all(c.get("execution_count") for c in cells) and not any(o.get("output_type") == "error" for c in cells for o in c.get("outputs", [])) and notebook["metadata"].get("gis_database_sha256") == database_hash,"code_cells":len(cells)})
@@ -49,14 +71,16 @@ space = all(by_check.get(k,{}).get("allResultsInside") and by_check[k].get("coun
 layer = by_check.get("only_selected_layers",{})
 offline = by_check.get("local_layers_without_online_basemap",{})
 search = by_check.get("whole_corpus_local_search",{})
-checks.append({"name":"browser_final_interactions","passed":bool(space and layer.get("drawnIds")==[layer.get("selected")] and offline.get("baseVisible")==0 and offline.get("gisLayers")==9 and search.get("indexed")==3021 and search.get("loadedBeforeSpatialFiltering")==3021)})
+expected_posts = receipt["metrics"]["posts"]
+checks.append({"name":"browser_final_interactions","passed":bool(space and layer.get("drawnIds")==[layer.get("selected")] and offline.get("baseVisible")==0 and offline.get("gisLayers")==9 and search.get("indexed")==expected_posts and search.get("loadedBeforeSpatialFiltering")==expected_posts),"expected_posts":expected_posts})
 draft = by_check.get("private_draft")
 if draft:
     checks.append({"name":"private_draft_arithmetic_and_storage","passed":bool(draft.get("saved") and draft.get("arithmeticCorrect") and draft.get("onlyKnownTestData"))})
+deal_metrics = receipt["metrics"].get("deal_completeness", {})
 report = {"checked_at":datetime.now().astimezone().isoformat(timespec="seconds"), "assessment":"Share with caveats" if all(c["passed"] for c in checks) else "Needs revision",
           "checks":checks, "metrics":receipt["metrics"], "database_sha256":database_hash,
           "implementation_sha256":{str(p.relative_to(APP)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [APP/'build_data.py',APP/'server.py',APP/'web/app.js',APP/'web/model.js',APP/'web/index.html',APP/'web/app.css']},
-          "browser":browser, "known_gaps":["Full-page screenshot capture timed out; canvas export is not whole-page pixel QA", "Address/campus/phase matches require human source verification", "New Puhe Primary School and Jiangpan Primary School have no coordinates in the captured official source", "Historical deals end 2026-06-23; leads are not verified current listings", "No official 2029 admission guarantee; online basemap needs network"]}
+          "browser":browser, "profile_completeness":profile_audit, "known_gaps":["Full-page screenshot capture timed out; canvas export is not whole-page pixel QA", "Address/campus/phase matches require human source verification", "New Puhe Primary School and Jiangpan Primary School have no coordinates in the captured official source", f"Deal records extend to {receipt['metrics'].get('deal_as_of')} but fully priced samples extend to {deal_metrics.get('latest_fully_priced_date')}; neither is current-market proof", "No official 2029 admission guarantee; online basemap needs network"]}
 (QA / "validation_receipt.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
 print(json.dumps({"assessment":report["assessment"],"checks":checks,"receipt":str(QA/'validation_receipt.json')},ensure_ascii=False,indent=2))
 raise SystemExit(0 if all(c["passed"] for c in checks) else 1)

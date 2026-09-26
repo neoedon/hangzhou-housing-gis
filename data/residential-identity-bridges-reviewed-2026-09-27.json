@@ -210,6 +210,22 @@
         "count": 0,
         "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       }
+    },
+    {
+      "source_entity_id": "local:residential:e06194d65c39dc104a33",
+      "source_name": "中城汇MIDTOWN",
+      "target_entity_id": "osm:way:702346218",
+      "target_name": "中尚汇府",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:145333",
+      "identity_basis": "project_text_contains_source_name",
+      "project_evidence_field": "field_values.项目介绍",
+      "evidence_contains": "中城汇MIDTOWN",
+      "evidence_note": "项目资料别名含中城汇，项目介绍逐字使用中城汇MIDTOWN；同区、同一项目，成交源仅有一条锁定记录。",
+      "price_ids": [
+        "deal:09aeea22963490d7fcc47e42bedbd31e5531e44935b9e28a6e2b81e0f3f041f1"
+      ],
+      "market_snapshot_ids": []
     }
   ]
 }

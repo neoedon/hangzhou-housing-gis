@@ -312,6 +312,42 @@
       "evidence_project_id": "leju:hangzhou:150518",
       "identity_basis": "exact_official_name_in_project_name_or_alias",
       "admission_id_set": {"count": 2, "sha256": "0c61f8e040f1cf23f0cabb19dddc6a14908f5314f6cede8ae04db7886031b3cb"}
+    },
+    {
+      "source_entity_id": "candidate:residential:e7bf5ffd28925eabe4fe",
+      "source_name": "风雅钱塘世纪花园",
+      "target_entity_id": "osm:way:522150711",
+      "target_name": "风雅钱塘",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:8426",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 8, "sha256": "9031fdff3264313905c2e87d0f8e1477b5c7cc0ec814b86e4d20b0edb27168fd"},
+      "target_admission_id_set": {"count": 8, "sha256": "0e4124c468d4322f1f6b5960101013f4a61da962914c44ef1ba41e3dcddf4e50"}
+    },
+    {
+      "source_entity_id": "candidate:residential:cbbf144f91e4f856200a",
+      "source_name": "望江楼",
+      "target_entity_id": "osm:way:589380855",
+      "target_name": "之江公寓",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:8487",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "4ec71bbbff0db946b93cc9ef82e1813dd5ff5450fb1d0f668f4e85d1b714b728"},
+      "target_admission_id_set": {"count": 2, "sha256": "5cf1b346529ad22cda82cbfb1761a07e36d68ceb4646f3a7b9fa339ec8bbeed8"}
+    },
+    {
+      "source_entity_id": "local:residential:991c1ba3274f76f28378",
+      "source_name": "金茂府",
+      "target_entity_id": "osm:way:601252874",
+      "target_name": "滨盛金茂府",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:133705",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 1, "sha256": "fae93e5d436fa83aed379e23b71ddf31f0251bb8083857ef0b2e441148932f31"},
+      "target_admission_id_set": {"count": 1, "sha256": "c661440f7ad1cd52de7d9c426826312d5b7c09e7686c4fc9cd9f4ecd072d2c70"}
     }
   ]
 }

@@ -147,13 +147,13 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_admission_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["admissions"]), (28, 61))
-        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 18, "拱墅区": 43})
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (31, 72))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 29, "拱墅区": 43})
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-admission-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 28)
+        self.assertEqual(len(mappings), 31)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -162,10 +162,15 @@ class DataTests(unittest.TestCase):
                 "SELECT count(*) FROM admissions WHERE home_id=? AND year='2026'",
                 (source_entity_id,),
             ).fetchone()[0], 0)
-            self.assertEqual(self.db.execute(
+            target_count = self.db.execute(
                 "SELECT count(*) FROM admissions WHERE home_id=? AND year='2026'",
                 (target_entity_id,),
-            ).fetchone()[0], options['admission_record_count'])
+            ).fetchone()[0]
+            self.assertEqual(target_count, options['postmerge_target_admission_count'])
+            self.assertEqual(
+                target_count,
+                options['admission_record_count'] + options['preexisting_target_admission_count'],
+            )
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM admissions WHERE home_id='osm:way:489071252' AND year='2026'"
         ).fetchone()[0], 5)
@@ -178,6 +183,35 @@ class DataTests(unittest.TestCase):
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM admissions WHERE home_id='osm:way:1001612427' AND year='2026'"
         ).fetchone()[0], 2)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:522150711' AND year='2026'"
+        ).fetchone()[0], 16)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:589380855' AND year='2026'"
+        ).fetchone()[0], 4)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:601252874' AND year='2026'"
+        ).fetchone()[0], 2)
+        self.assertEqual(
+            {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT json_extract(payload,'$.residential_name') "
+                    "FROM admissions WHERE home_id='osm:way:522150711' AND year='2026'"
+                )
+            },
+            {'风雅钱塘', '风雅钱塘世纪花园'},
+        )
+        self.assertEqual(
+            {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT json_extract(payload,'$.residential_name') "
+                    "FROM admissions WHERE home_id='osm:way:589380855' AND year='2026'"
+                )
+            },
+            {'之江公寓', '望江楼'},
+        )
 
     def test_price_enrichments_preserve_record_identity_and_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])

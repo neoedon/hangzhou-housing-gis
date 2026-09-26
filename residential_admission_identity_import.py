@@ -2,8 +2,10 @@
 
 Each bridge is constrained to one district, one OSM target, one project record
 that contains the official residential name verbatim, and one hash-locked set
-of 2026 admission IDs.  No prices, projects, posts, candidates, or history are
-moved by this importer.
+of 2026 admission IDs.  When the target already has official relations, that
+pre-existing ID set is independently hash-locked before the reviewed alias is
+attached.  No prices, projects, posts, candidates, or history are moved by this
+importer.
 """
 from __future__ import annotations
 
@@ -64,6 +66,38 @@ def _reviewed_admission_ids(builder, bridge, source_entity_id, year):
         } - {""}
         if expected_name not in names:
             raise ValueError("Official residential name changed inside admission evidence")
+    return actual
+
+
+def _locked_target_admission_ids(builder, bridge, target_entity_id, year):
+    from build_data import digest, dump
+
+    rows = builder.db.execute(
+        """
+        SELECT a.id,s.kind
+        FROM admissions a JOIN sources s ON s.id=a.source_id
+        WHERE a.home_id=? AND a.year=?
+        ORDER BY a.id
+        """,
+        (target_entity_id, year),
+    ).fetchall()
+    actual = [row[0] for row in rows]
+    lock = bridge.get("target_admission_id_set")
+    if actual:
+        if not isinstance(lock, dict) or set(lock) != {"count", "sha256"}:
+            raise ValueError(
+                "Residential admission target with existing relations needs one exact ID-set lock"
+            )
+        if lock["count"] != len(actual) or lock["sha256"] != digest(dump(actual)):
+            raise ValueError(
+                f"Residential admission target IDs changed for {target_entity_id}"
+            )
+        if any(row[1] != "official_admissions" for row in rows):
+            raise ValueError(
+                "Residential admission target lock only accepts official relations"
+            )
+    elif lock not in (None, {"count": 0, "sha256": digest(dump([]))}):
+        raise ValueError("Residential admission target lock expected records that are absent")
     return actual
 
 
@@ -130,12 +164,9 @@ def integrate(builder, catalogue_path=None):
             raise ValueError(
                 "Official residential name is absent from target project name or aliases"
             )
-        if builder.db.execute(
-            "SELECT 1 FROM admissions WHERE home_id=? AND year=? LIMIT 1",
-            (target_entity_id, year),
-        ).fetchone():
-            raise ValueError("Residential admission target already has reviewed-year relations")
-
+        target_admission_ids = _locked_target_admission_ids(
+            builder, bridge, target_entity_id, year
+        )
         admission_ids = _reviewed_admission_ids(
             builder, bridge, source_entity_id, year
         )
@@ -168,6 +199,12 @@ def integrate(builder, catalogue_path=None):
                         "identity_basis": bridge["identity_basis"],
                         "admission_record_count": len(admission_ids),
                         "admission_record_sha256": digest(dump(admission_ids)),
+                        "preexisting_target_admission_count": len(target_admission_ids),
+                        "preexisting_target_admission_sha256": digest(
+                            dump(target_admission_ids)
+                        ),
+                        "postmerge_target_admission_count": len(target_admission_ids)
+                        + len(admission_ids),
                         "scope": "admissions_only",
                     }
                 ),
@@ -180,6 +217,9 @@ def integrate(builder, catalogue_path=None):
                 "year": year,
                 "evidence_project_id": bridge["evidence_project_id"],
                 "admissions": len(admission_ids),
+                "preexisting_target_admissions": len(target_admission_ids),
+                "postmerge_target_admissions": len(target_admission_ids)
+                + len(admission_ids),
             }
         )
 

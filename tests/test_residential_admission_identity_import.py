@@ -150,7 +150,7 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "name changed inside admission"):
             integrate(self.builder, self.catalogue())
 
-    def test_existing_target_relation_is_rejected(self):
+    def test_existing_target_relation_requires_lock_and_preserves_both_rows(self):
         self.db.execute(
             "INSERT INTO admissions VALUES(?,?,?,?,?,?,?,?)",
             (
@@ -159,8 +159,46 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
                 dump({"residential_name": "品牌楼盘名"}),
             ),
         )
-        with self.assertRaisesRegex(ValueError, "target already has"):
+        with self.assertRaisesRegex(ValueError, "needs one exact ID-set lock"):
             integrate(self.builder, self.catalogue())
+        lock = {
+            "count": 1,
+            "sha256": digest(dump(["admission:target"])),
+        }
+        result = integrate(
+            self.builder,
+            self.catalogue(bridge={"target_admission_id_set": lock}),
+        )
+        self.assertEqual(result["applied"][0]["preexisting_target_admissions"], 1)
+        self.assertEqual(result["applied"][0]["postmerge_target_admissions"], 2)
+        self.assertEqual(
+            self.db.execute(
+                "SELECT count(*) FROM admissions WHERE home_id='osm:way:target'"
+            ).fetchone()[0],
+            2,
+        )
+
+    def test_changed_target_relation_set_is_rejected(self):
+        self.db.execute(
+            "INSERT INTO admissions VALUES(?,?,?,?,?,?,?,?)",
+            (
+                "admission:target", "osm:way:school", "osm:way:target", "official-source",
+                "2026", "户籍生", 1,
+                dump({"residential_name": "品牌楼盘名"}),
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "target IDs changed"):
+            integrate(
+                self.builder,
+                self.catalogue(
+                    bridge={
+                        "target_admission_id_set": {
+                            "count": 1,
+                            "sha256": digest(dump(["different:id"])),
+                        }
+                    }
+                ),
+            )
 
     def test_nonofficial_cross_district_and_non_osm_relations_are_rejected(self):
         self.db.execute("UPDATE sources SET kind='fixture' WHERE id='official-source'")

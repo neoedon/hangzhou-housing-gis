@@ -153,13 +153,13 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_admission_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["admissions"]), (33, 81))
-        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 34, "拱墅区": 47})
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (34, 83))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 34, "拱墅区": 49})
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-admission-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 33)
+        self.assertEqual(len(mappings), 34)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -204,6 +204,9 @@ class DataTests(unittest.TestCase):
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM admissions WHERE home_id='osm:way:1529298587' AND year='2026'"
         ).fetchone()[0], 4)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:1167135393' AND year='2026'"
+        ).fetchone()[0], 2)
         self.assertEqual(
             {
                 row[0]
@@ -243,6 +246,16 @@ class DataTests(unittest.TestCase):
                 )
             },
             {'宸鹭晴语轩'},
+        )
+        self.assertEqual(
+            {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT json_extract(payload,'$.residential_name') "
+                    "FROM admissions WHERE home_id='osm:way:1167135393' AND year='2026'"
+                )
+            },
+            {'天青里'},
         )
 
     def test_price_enrichments_preserve_record_identity_and_evidence(self):

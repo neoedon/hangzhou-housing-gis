@@ -375,6 +375,19 @@
       "brand_prefix": "西房",
       "evidence_note": "乐居项目名与 OSM 实体名均等于开发商品牌‘西房’加官方小区名‘宸鹭晴语轩’，开发商字段同时明记‘西房’；仅迁移锁定的 4 条官方关系。",
       "admission_id_set": {"count": 4, "sha256": "0df17a64968d3440e3c9e24be2c1fb27760830e08540f95df4dcc80fdf8cee30"}
+    },
+    {
+      "source_entity_id": "local:residential:276a80d6d869ad073c73",
+      "source_name": "天青里",
+      "target_entity_id": "osm:way:1167135393",
+      "target_name": "首开天青里",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:157627",
+      "identity_basis": "project_brand_prefix_plus_official_name",
+      "brand_prefix": "首开",
+      "evidence_note": "同区仅一个楼盘项目逐字等于开发商品牌‘首开’加官方小区名‘天青里’，开发商字段同时明记‘首开’；仅迁移锁定的 2 条官方关系。",
+      "admission_id_set": {"count": 2, "sha256": "d5cb9112fac9497a469ef5baec3c065c4d255a028087987323a173c56f798adf"}
     }
   ]
 }

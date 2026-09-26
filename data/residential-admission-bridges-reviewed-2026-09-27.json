@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "reviewed": true,
+  "reviewed_at": "2026-09-27",
+  "source_as_of": "2026-09-08",
+  "scope_policy": "仅将逐条锁定的 2026 年官方招生关系挂接到同区 OSM 住宅实体；官方小区名必须在该实体的项目名或已取证别名中逐字命中。不迁移价格、楼盘、帖子、候选池或历史快照。",
+  "bridges": [
+    {
+      "source_entity_id": "candidate:residential:2623a2190a75ed197895",
+      "source_name": "柳岸晓风公寓",
+      "target_entity_id": "osm:way:605022067",
+      "target_name": "柳岸晓风",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:131768",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "d640e860d207267683631650c4e71d1b13ca501d39bae987ca80053adbed355a"}
+    },
+    {
+      "source_entity_id": "official:residential:33010800302100045799",
+      "source_name": "咏滨名邸",
+      "target_entity_id": "osm:way:1381654446",
+      "target_name": "伟星·咏滨名邸",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:189083",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "8a5ad9e0ee8b7e3a7e60a2b0ad45d3095e25c0ae359a0f75ef99f9dc7e24c7d7"}
+    },
+    {
+      "source_entity_id": "candidate:residential:7dd067d3739c6d402381",
+      "source_name": "璞悦湾",
+      "target_entity_id": "osm:way:489071252",
+      "target_name": "万科璞悦湾",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:106863",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 5, "sha256": "7de76462e8151aad6c0461ff94fc309f7bf1a5e6536e9e1ad28e11e5ae6d8a7d"}
+    },
+    {
+      "source_entity_id": "candidate:residential:5d8776dfd774365bf7c9",
+      "source_name": "观邸国际寓所",
+      "target_entity_id": "osm:way:614214443",
+      "target_name": "观邸国际",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:126991",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 5, "sha256": "fedf82be40782651c536d7e79710f5edc7df3b72b490c2a99f29cb7adc1162c4"}
+    },
+    {
+      "source_entity_id": "candidate:residential:377702ca9c5fc7ec5f14",
+      "source_name": "江荣府",
+      "target_entity_id": "osm:way:1119501975",
+      "target_name": "荣盛江荣府",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:174307",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "091ff34f6b08aa70eb8d7015342baa0b48042aa8a54761e16ef0ffc3564488ef"}
+    },
+    {
+      "source_entity_id": "local:residential:7539fc674e418a9fc3e0",
+      "source_name": "都和轩",
+      "target_entity_id": "osm:way:1167135365",
+      "target_name": "保利·都和轩",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:181684",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "ab5c82b1babd4c521865271e3e37d6efb56e70c3707b4d133a637f2f81875cbc"}
+    },
+    {
+      "source_entity_id": "local:residential:468a95c04e26eb85aeb2",
+      "source_name": "养云静舍",
+      "target_entity_id": "osm:way:673262032",
+      "target_name": "杭房建发·养云静舍",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:159439",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "926807aecaac8d518095739754df7e611054f71366ad480640523cc6a2612f37"}
+    },
+    {
+      "source_entity_id": "local:residential:a537740f76a4c8fd94ab",
+      "source_name": "祥宸府",
+      "target_entity_id": "osm:way:1164883565",
+      "target_name": "荣安招商祥宸府",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:159708",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "1c0572233453f23caa3bd63e186f987c677c0d31cc3913356dcba8325644b158"}
+    },
+    {
+      "source_entity_id": "local:residential:df01aa04c2beda421057",
+      "source_name": "绅华府",
+      "target_entity_id": "osm:way:673262031",
+      "target_name": "莱德·绅华府",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:54547",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "1b57129e30ec9dc8b438f15f4e39c109fa41de6ef0df56deabb9d54e847388b4"}
+    },
+    {
+      "source_entity_id": "local:residential:c9efa26fbbe52351af78",
+      "source_name": "宸章新邸",
+      "target_entity_id": "osm:way:1164883584",
+      "target_name": "远洋建华·宸章新邸",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:169008",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 1, "sha256": "7c1c87e616f96a000c1873fce720e29341380c6f567ca0bc709b1e1ef4c4c1c3"}
+    },
+    {
+      "source_entity_id": "local:residential:e0be7d743a677b9baacf",
+      "source_name": "天承美筑",
+      "target_entity_id": "osm:way:1164883640",
+      "target_name": "大家湛景·天承美筑",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:166950",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "14e4cc5df5d07acd64b9783362048fa518a0857605edf1734d253e880e08c868"}
+    },
+    {
+      "source_entity_id": "local:residential:22a93573ca2d1c2901ad",
+      "source_name": "澜栖府",
+      "target_entity_id": "osm:way:1358987827",
+      "target_name": "特发·澜栖府",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:187484",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "0fe8cc20b9c3327ea353266af698e98669f1add3fbe18b85ea05ff17fdcfd257"}
+    },
+    {
+      "source_entity_id": "local:residential:8f3cacb4710c9b7d057d",
+      "source_name": "畔上居",
+      "target_entity_id": "osm:way:871967953",
+      "target_name": "联合畔上居",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:113960",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 2, "sha256": "c864c221591b5c55f5464169e136729d33c1a937546b3f4cacdf823f73726662"}
+    },
+    {
+      "source_entity_id": "local:residential:e1b438520aee5c7b54a9",
+      "source_name": "春熙上和湾",
+      "target_entity_id": "osm:way:1523227903",
+      "target_name": "荣安春熙上和湾",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:169676",
+      "identity_basis": "exact_official_name_in_project_name_or_alias",
+      "admission_id_set": {"count": 1, "sha256": "76ddc0cc461ca94fbe7d6a7b5f828d2a0cc19b4cc6cdbf8de4933179cd4694ac"}
+    }
+  ]
+}

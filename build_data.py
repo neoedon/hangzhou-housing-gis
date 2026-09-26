@@ -369,11 +369,14 @@ class Builder:
         increments = integrate_incremental(self)
         from residential_identity_bridge_import import integrate as integrate_residential_identity_bridges
         residential_identity_bridges = integrate_residential_identity_bridges(self)
+        from residential_admission_identity_import import integrate as integrate_residential_admission_identities
+        residential_admission_identities = integrate_residential_admission_identities(self)
         metrics = {table: self.db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in (
             "entities", "candidates", "school_records", "admissions", "school_campus_links", "school_groups", "school_group_memberships", "posts", "post_places", "co_mentions", "prices", "projects", "market_snapshots", "policy_texts", "history", "sources")}
         metrics['school_group_catalog'] = school_group_metrics
         metrics['incremental'] = increments
         metrics['residential_identity_bridges'] = residential_identity_bridges
+        metrics['residential_admission_identity_bridges'] = residential_admission_identities
         metrics["post_details"] = self.db.execute("SELECT count(*) FROM posts WHERE depth='detail_description'").fetchone()[0]
         metrics["located_entities"] = self.db.execute("SELECT count(*) FROM entities WHERE lat IS NOT NULL").fetchone()[0]
         metrics["price_kinds"] = dict(self.db.execute("SELECT kind,count(*) FROM prices GROUP BY kind"))

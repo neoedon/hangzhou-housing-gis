@@ -135,6 +135,35 @@ class DataTests(unittest.TestCase):
             "WHERE entity_id='osm:way:673543501'"
         ).fetchone()[0], 46890)
 
+    def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
+        metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
+        bridges = metrics["residential_admission_identity_bridges"]
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (14, 32))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 16, "拱墅区": 16})
+        mappings = self.db.execute("""
+            SELECT source_record,entity_id,options FROM mappings
+            WHERE source_id='residential-admission-identity-bridges'
+        """).fetchall()
+        self.assertEqual(len(mappings), 14)
+        for source_entity_id, target_entity_id, raw_options in mappings:
+            options = json.loads(raw_options)
+            self.assertTrue(target_entity_id.startswith('osm:'))
+            self.assertEqual(options['scope'], 'admissions_only')
+            self.assertEqual(self.db.execute(
+                "SELECT count(*) FROM admissions WHERE home_id=? AND year='2026'",
+                (source_entity_id,),
+            ).fetchone()[0], 0)
+            self.assertEqual(self.db.execute(
+                "SELECT count(*) FROM admissions WHERE home_id=? AND year='2026'",
+                (target_entity_id,),
+            ).fetchone()[0], options['admission_record_count'])
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:489071252' AND year='2026'"
+        ).fetchone()[0], 5)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:1167135365' AND year='2026'"
+        ).fetchone()[0], 2)
+
     def test_price_enrichments_preserve_record_identity_and_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         enriched = 0

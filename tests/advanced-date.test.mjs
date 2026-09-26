@@ -27,3 +27,10 @@ test('advanced filter keeps same-record budget and same-year school relation cav
   assert.ok(html.includes('预算与面积需同一条价格记录满足。查询学校时，按所选年度关联住宅线索筛选学校；无年度关系则不满足。候选估算不是单套报价。'));
   assert.ok(html.includes('已入库成交记录截至 <span id="advanced-deal-as-of">待载入</span>（含缺价记录，不代表当前行情）。'));
 });
+test('community comparison reuses the graduated relation plan instead of showing a dead-end no-relation cell',()=>{
+  assert.match(app,/const schoolLinks=x=>/);
+  assert.match(app,/plan\.items\.map\(r=>/);
+  assert.match(app,/同区核验入口/);
+  assert.match(app,/state\.admission==='all'\?'全部类型':state\.admission/);
+  assert.doesNotMatch(app,/没有 \$\{esc\(state\.year\)\} 年名单关系，未知/);
+});

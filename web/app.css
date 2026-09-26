@@ -238,6 +238,10 @@ dialog.wide-dialog{width:min(1140px,calc(100vw - 32px))}
 .comparison-table td{padding:13px;vertical-align:top;border-bottom:1px solid #e1e9d6;font-size:13px;line-height:1.9;color:var(--muted)}
 .comparison-table td:first-child{color:#64716a}
 .comparison-table button{font-size:12px;margin-top:7px;padding:4px 6px}
+.comparison-relation-label{display:block;color:var(--ink);font-weight:700;line-height:1.5;margin-bottom:3px}
+.comparison-relation-label+small{display:block;color:var(--muted);line-height:1.55;margin-bottom:3px}
+.comparison-relation-label[data-tier="official"]{color:var(--green)}
+.comparison-relation-label[data-tier="co"],.comparison-relation-label[data-tier="nearby"],.comparison-relation-label[data-tier="district"]{color:#8a5b21}
 .number-pin{display:inline-grid;place-items:center;background:#476e3d;color:white;border-radius:50%;height:19px;width:19px;margin-right:5px;font-size:12px}
 .workspace-form{margin:20px 0}
 .workspace-form input{height:40px;min-height:40px;font-size:14px;padding:9px 10px}

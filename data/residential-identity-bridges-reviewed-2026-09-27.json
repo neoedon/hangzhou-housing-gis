@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "reviewed": true,
+  "reviewed_at": "2026-09-27",
+  "source_as_of": "2026-09-27",
+  "scope_policy": "仅将逐条锁定的价格与小区行情记录挂接到有明确项目名或别名证据的同区 OSM 住宅实体；不迁移招生、帖子、候选池或历史快照关系。",
+  "bridges": [
+    {
+      "source_entity_id": "local:residential:913c7f5d5889308e0b6d",
+      "source_name": "中兴御田清庭",
+      "target_entity_id": "osm:way:871967951",
+      "target_name": "御田清庭",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:121983",
+      "price_ids": [
+        "deal:019e6ca694685cdcd9c4d9b238f252c54977ec47593f353457d90fcc54286717",
+        "deal:c8ad4b98e7a4a335cd0faca1da7dff1da686b4aa12827220aa20692336d32ee6"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:4fe59783b4a76a76c5c4",
+      "source_name": "凯德湖墅",
+      "target_entity_id": "osm:way:706912641",
+      "target_name": "湖墅观邸",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:123053",
+      "price_ids": [
+        "deal:569e8784ab9e627e4ac7bd3b404e232faa3542ab159becec8ac893c1a5f95bbc"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:5f13cda090f9314ba7e1",
+      "source_name": "春题杭玥府",
+      "target_entity_id": "osm:way:952053758",
+      "target_name": "合能杭玥府",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:171778",
+      "price_ids": [
+        "deal:987457096d9c1f770d7cbd9aa0624f0f34e2c48c11ca5c6e57ce1da17bc5e13d",
+        "deal:429a7cb21d915dd9ccca210f08c3ff23ddcbb97115a8b6d6065f2116cbd94e7a"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:73ab3ea7bc4ed2c43c7c",
+      "source_name": "杭钢尚堂府",
+      "target_entity_id": "osm:way:568136631",
+      "target_name": "紫元・尚堂",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:117830",
+      "price_ids": [
+        "deal:e6b5c32f990fe0aea5165214f6efdaecdde14a3049cfdb55d28c780cec29997a"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:a5e3b578766da9854f10",
+      "source_name": "滨江芳翠锦绣府",
+      "target_entity_id": "osm:way:1529298580",
+      "target_name": "芳翠锦绣府",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:187496",
+      "price_ids": [
+        "deal:7bdcb681eb12102d910a4e974c64e71ba3b08e3fb5c561dbe794ee364b19dea0",
+        "deal:09cf3e9ee9215f09b2957f6b0e8e823d368fcf8f73f67d032ab52da4f65867bd"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:01650d04408df5bf3a74",
+      "source_name": "盛景琥林名邸",
+      "target_entity_id": "osm:way:673541819",
+      "target_name": "天阳武林邸",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:134381",
+      "price_ids": [
+        "deal:f095bbd64570872a67096c589608da5833464bcac53ceb7b07fa8b6e6c42a352",
+        "deal:6b7856cac9cf9d902cdfcb59ef6855df1e72549fec581a6130fbd60390247158"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:ca824c429ae6094f6ba9",
+      "source_name": "荣安春月杭宁府",
+      "target_entity_id": "osm:way:1164883610",
+      "target_name": "春月杭宁府",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:167789",
+      "price_ids": [
+        "deal:bfe42154619e4afee7169c20e061274e482f779ec88709766397165273eefffa"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:56d77f0bf16f81369073",
+      "source_name": "馥香园",
+      "target_entity_id": "osm:way:673262026",
+      "target_name": "绿城·馥香园",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:187345",
+      "price_ids": [
+        "deal:de20576793d421572c5afac2459a40a8c13f1f399cfdc120fcf9e0c2c68b9720",
+        "deal:45400c221af6ac975741ff93c1642b8c1bf9c1fcc872fc44a8b4bc68731ece7d",
+        "deal:bfbe1fa3899ab246e177a8431cc24c346980f3df72db6187368cd2aaab93e24a"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "candidate:residential:e7bf5ffd28925eabe4fe",
+      "source_name": "风雅钱塘世纪花园",
+      "target_entity_id": "osm:way:522150711",
+      "target_name": "风雅钱塘",
+      "district": "滨江区",
+      "evidence_project_id": "leju:hangzhou:8426",
+      "price_ids": [
+        "lead:d8a8922a841a8b701d52ff638b21a7e4f88edee19ef71d686a79498aba3f2be4",
+        "lead:845af26a7e66c1884b872ea3147d57fa96eb3dcab1d7b30869a7726c8d617e44",
+        "lead:c521cd0f20c7f966f7f4f97711c6c461d1b52fa0d035191bb7f10dfbaeafd121"
+      ],
+      "market_snapshot_ids": []
+    }
+  ]
+}

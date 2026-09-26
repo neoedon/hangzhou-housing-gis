@@ -34,6 +34,20 @@ test('rectangle handles reverse drag',()=>{assert.deepEqual(rectangle([121,31],[
 test('viewport requires explicit switch',()=>{assert.deepEqual(q({bounds:[0,0,1,1]}),['s']);assert.deepEqual(q({viewportOnly:true,bounds:[0,0,1,1]}),[]);});
 test('budget and area must match SAME record',()=>{assert.deepEqual(q({kind:'residential',maxBudget:'250',minArea:'80'}),[]);assert.deepEqual(q({kind:'residential',maxBudget:'310',minArea:'80'}),['h']);});
 test('unknown prices excluded unless explicitly retained',()=>{assert.deepEqual(q({kind:'residential',maxBudget:'250'}),[]);assert.deepEqual(q({kind:'residential',maxBudget:'250',includeUnknown:true}),['u']);});
+test('community profile prefers opening for an active new project, delivery otherwise, and uses the latest reference average',()=>{
+  const projects=[{source_id:'project-source',observed_at:'2026-09-10',payload:{name:'测试楼盘',sales_status:'在售',opening_date_raw:'2026年10月',delivery_date_raw:'2028年6月',detail_observed_at:'2026-09-10',field_values:{'建成年代':'2014年'}}}];
+  const detail={projects,market_snapshots:[
+    {source_id:'old',observed_at:'2026-08-01',payload:{reference_unit_yuan_sqm:30000,source_as_of:'2026-07-01'}},
+    {source_id:'new',observed_at:'2026-09-01',payload:{reference_unit_yuan_sqm:32000,source_as_of:'2026-08-01'}}
+  ],prices:[]};
+  const active=communityProfile({kind:'residential'},detail);
+  assert.equal(active.timing.label,'开盘时间');assert.equal(active.timing.value,'2026年10月');
+  assert.equal(active.price.value,32000);assert.equal(active.price.sourceId,'new');
+  assert.equal(active.extendedFields.find(row=>row.label==='房龄参考').value,'12年（截至2026）');
+  projects[0].payload.sales_status='已售完';
+  const completed=communityProfile({kind:'residential'},detail);
+  assert.equal(completed.timing.label,'交付时间');assert.equal(completed.timing.value,'2028年6月');
+});
 test('transaction dates are independent of candidate snapshot',()=>{assert.deepEqual(q({kind:'residential',priceKind:'deal',dealFrom:'2026-07-01'}),[]);assert.deepEqual(q({kind:'residential',priceKind:'deal',dealTo:'2026-06-30'}),['h']);});
 test('old observation cannot turn fresh by rebuilding app',()=>{assert.equal(isFresh('2026-06-23','2026-09-08'),false);assert.equal(isFresh('2026-09-01','2026-09-08'),true);assert.deepEqual(q({kind:'residential',priceKind:'deal',freshOnly:true}),[]);});
 test('snapshot candidate filter does not use current candidate',()=>{const result=queryEntities(data,{...DEFAULTS,kind:'residential',candidateOnly:true},[],{});assert.deepEqual(result,[]);});
@@ -247,7 +261,19 @@ test('community profile keeps every key row visible when evidence is missing',()
   const profile=communityProfile({kind:'residential',name:'待补充小区'},{});
   assert.equal(profile.fields.length,16);assert.equal(profile.known,0);assert.equal(profile.total,18);assert.equal(profile.missing,18);assert.equal(profile.missingPercent,100);assert.equal(profile.passesCompleteness,false);assert.equal(profile.timing.value,null);assert.equal(profile.price.value,null);
   assert.equal(profile.fields.every(item=>item.value===null),true);
-  assert.equal(profile.extendedFields.length,13);assert.equal(profile.extendedKnown,0);assert.equal(profile.extendedMissing,13);assert.equal(profile.extendedMissingPercent,100);
+  assert.equal(profile.extendedFields.length,14);assert.equal(profile.extendedKnown,0);assert.equal(profile.extendedMissing,14);assert.equal(profile.extendedMissingPercent,100);
+});
+test('community profile supplements only a unique missing value from another project record and exposes both sources',()=>{
+  const detail={projects:[
+    {source_id:'source:primary',observed_at:'2026-09-10',payload:{name:'同名小区',delivery_date_raw:'2010年12月',developer:'测试置业',field_values:{'楼盘名称':'同名小区','交通情况':'地铁线索'},detail_observed_at:'2026-09-10'}},
+    {source_id:'source:supplement',observed_at:'2026-09-10',payload:{name:'同名小区',delivery_date_raw:'2010年12月',developer:'测试置业',field_values:{'建成年代':'2011'},detail_observed_at:'2026-09-10'}}
+  ]};
+  const profile=communityProfile({kind:'residential'},detail);
+  assert.equal(profile.fields.find(item=>item.label==='建成年代').value,'2011');
+  assert.equal(profile.extendedFields.find(item=>item.label==='房龄参考').value,'15年（截至2026）');
+  assert.deepEqual(profile.sourceIds,['source:primary','source:supplement']);
+  detail.projects.push({source_id:'source:conflict',payload:{field_values:{'建成年代':'2012'}}});
+  assert.equal(communityProfile({kind:'residential'},detail).fields.find(item=>item.label==='建成年代').value,null);
 });
 test('observed Fang and Anjuke resale channels are classified without guessing generic URLs',()=>{
   assert.equal(priceMarket({kind:'listing',payload:{url:'https://m.fang.com/esf/hz_xm2010186770/'}}),'resale');

@@ -89,14 +89,29 @@ function priceRange(rows){
   const values=rows.map(row=>positiveNumber(row?.unit_yuan_sqm)).filter(Boolean);
   return values.length?{low:Math.min(...values),high:Math.max(...values)}:{low:null,high:null};
 }
+function newestFirst(rows=[],dateOf=()=>null){
+  return [...rows].sort((a,b)=>String(dateOf(b)||'').localeCompare(String(dateOf(a)||'')));
+}
+function explicitYear(value){
+  const match=String(value??'').match(/(?:19|20)\d{2}/);
+  return match?Number(match[0]):null;
+}
 const possibleDuplicate=row=>!!(row?.possible_duplicate||row?.payload?.possible_duplicate);
 /** Build one evidence-bounded profile for every residential detail panel. */
 export function communityProfile(entity={},detail={}){
-  const projectRow=bestProject(detail.projects||[]),project=projectRow?.payload||{},fields=project.field_values||{};
-  const snapshots=(detail.market_snapshots||[]).filter(row=>positiveNumber(row?.payload?.reference_unit_yuan_sqm));
-  const projectPrices=(project.prices||[]).filter(price=>!price?.font_encoded&&positiveNumber(price?.amount)&&['元/㎡','元/平方米'].includes(price?.unit));
-  const listingRows=(detail.prices||[]).filter(row=>row?.kind==='listing'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm));
-  const dealRows=(detail.prices||[]).filter(row=>row?.kind==='deal'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm));
+  const projectRows=detail.projects||[],projectRow=bestProject(projectRows),project=projectRow?.payload||{},fields=project.field_values||{};
+  const projectPayloads=projectRows.map(row=>row?.payload||{});
+  const uniqueProjectValue=read=>{
+    const values=[];
+    for(const payload of projectPayloads){const value=read(payload);if(present(value)&&!values.some(item=>String(item)===String(value)))values.push(value);}
+    return values.length===1?values[0]:null;
+  };
+  const projectValue=key=>firstPresent(project[key],uniqueProjectValue(payload=>payload[key]));
+  const fieldValue=(...names)=>firstPresent(...names.map(name=>fields[name]),...names.map(name=>uniqueProjectValue(payload=>(payload.field_values||{})[name])));
+  const snapshots=newestFirst((detail.market_snapshots||[]).filter(row=>positiveNumber(row?.payload?.reference_unit_yuan_sqm)),row=>row?.payload?.source_as_of||row?.payload?.observed_at||row?.observed_at);
+  const projectPrices=newestFirst((project.prices||[]).filter(price=>!price?.font_encoded&&positiveNumber(price?.amount)&&['元/㎡','元/平方米'].includes(price?.unit)),price=>price?.price_as_of||price?.observed_at||project.detail_observed_at);
+  const listingRows=newestFirst((detail.prices||[]).filter(row=>row?.kind==='listing'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm)),row=>row?.payload?.price_as_of||row?.payload?.source_as_of||row?.observed_at);
+  const dealRows=newestFirst((detail.prices||[]).filter(row=>row?.kind==='deal'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm)),row=>row?.event_date||row?.observed_at);
   let price={value:null,label:'均价',basis:'尚无可可靠展示的均价记录',asOf:null,observedAt:null,count:0,sourceId:null,low:null,high:null};
   if(snapshots.length){
     const row=snapshots[0],payload=row.payload||{};
@@ -112,9 +127,9 @@ export function communityProfile(entity={},detail={}){
     const dates=dealRows.map(row=>profileDate(row.event_date)).filter(Boolean).sort();
     price={value:averagePrice(dealRows),label:'成交样本均价',basis:'已入库历史成交样本均值，不代表当前行情',asOf:dates.length?`${dates[0]}${dates.at(-1)!==dates[0]?' — '+dates.at(-1):''}`:null,observedAt:profileDate(dealRows[0]?.observed_at),count:dealRows.length,sourceId:dealRows[0]?.source_id||null,...priceRange(dealRows)};
   }
-  const delivery=firstPresent(project.delivery_date_raw,fields['最近交房'],fields['交房时间'],fields['入住时间']);
-  const opening=firstPresent(project.opening_date_raw,fields['最近开盘'],fields['开盘时间'],fields['首次开盘']);
-  const permits=(project.presale_permits||[]).map(permit=>profileDate(permit?.permit_date_raw)).filter(Boolean).sort();
+  const delivery=firstPresent(projectValue('delivery_date_raw'),fieldValue('最近交房','交房时间','入住时间'));
+  const opening=firstPresent(projectValue('opening_date_raw'),fieldValue('最近开盘','开盘时间','首次开盘'));
+  const permits=projectPayloads.flatMap(payload=>payload.presale_permits||[]).map(permit=>profileDate(permit?.permit_date_raw)).filter(Boolean).sort();
   const timingFacts=[
     delivery?{id:'delivery',value:String(delivery),label:'交付时间',basis:'来源页面交房 / 入住字段'}:null,
     opening?{id:'opening',value:String(opening),label:'开盘时间',basis:'来源页面开盘字段'}:null
@@ -123,34 +138,38 @@ export function communityProfile(entity={},detail={}){
   const preferredTiming=activelySelling&&opening?timingFacts.find(item=>item.id==='opening'):timingFacts.find(item=>item.id==='delivery')||timingFacts[0];
   const timing=preferredTiming?{...preferredTiming,related:timingFacts.filter(item=>item.id!==preferredTiming.id)}:
     {value:null,label:'交付 / 开盘',basis:permits.length?`尚未披露；最早预售许可 ${permits[0]}`:'来源尚未披露'};
-  const propertyType=Array.isArray(project.property_type)?project.property_type.filter(Boolean).join('、'):project.property_type;
-  const builtYear=firstPresent(entity?.candidate?.built_year,snapshots[0]?.payload?.built_year_source,fields['建成年代'],fields['竣工时间']);
+  const propertyTypeRaw=projectValue('property_type'),propertyType=Array.isArray(propertyTypeRaw)?propertyTypeRaw.filter(Boolean).join('、'):propertyTypeRaw;
+  const builtYear=firstPresent(entity?.candidate?.built_year,snapshots[0]?.payload?.built_year_source,fieldValue('建成年代','竣工时间'));
+  const observedAt=newestFirst(projectRows,row=>row?.payload?.detail_observed_at||row?.observed_at).map(row=>profileDate(row?.payload?.detail_observed_at||row?.observed_at)).find(Boolean)||null;
+  const builtYearNumber=explicitYear(builtYear),ageAsOfYear=explicitYear(observedAt);
+  const buildingAge=builtYearNumber&&ageAsOfYear&&ageAsOfYear>=builtYearNumber?`${ageAsOfYear-builtYearNumber}年（截至${ageAsOfYear}）`:null;
   const profileFields=[
-    ['basic','楼盘位置',firstPresent(project.address,entity.address)],['basic','建成年代',builtYear],
-    ['basic','物业类型',firstPresent(propertyType,fields['物业类型'])],['basic','建筑类型',firstPresent(project.building_types,fields['建筑类型'])],['basic','产权年限',firstPresent(project.property_rights,fields['产权年限'])],
-    ['planning','建筑面积',firstPresent(project.building_area_raw,fields['建筑面积'])],['planning','占地面积',firstPresent(project.land_area_raw,fields['占地面积'])],
-    ['planning','总户数',firstPresent(project.units_raw,fields['规划户数'])],['planning','容积率',firstPresent(project.floor_area_ratio_raw,fields['容积率'])],['planning','绿化率',firstPresent(project.green_ratio_raw,fields['绿化率'])],['planning','开发商',project.developer],
-    ['property','物业公司',firstPresent(project.property_manager,fields['物业公司'])],['property','物业费用',firstPresent(project.management_fee_raw,fields['物业费'],fields['物业费用'])],
-    ['property','总车位数',fields['车位']],['property','车位配比',fields['车位配比']],['property','人车分流',fields['人车分流']]
+    ['basic','楼盘位置',firstPresent(projectValue('address'),entity.address)],['basic','建成年代',builtYear],
+    ['basic','物业类型',firstPresent(propertyType,fieldValue('物业类型'))],['basic','建筑类型',firstPresent(projectValue('building_types'),fieldValue('建筑类型'))],['basic','产权年限',firstPresent(projectValue('property_rights'),fieldValue('产权年限'))],
+    ['planning','建筑面积',firstPresent(projectValue('building_area_raw'),fieldValue('建筑面积'))],['planning','占地面积',firstPresent(projectValue('land_area_raw'),fieldValue('占地面积'))],
+    ['planning','总户数',firstPresent(projectValue('units_raw'),fieldValue('规划户数'))],['planning','容积率',firstPresent(projectValue('floor_area_ratio_raw'),fieldValue('容积率'))],['planning','绿化率',firstPresent(projectValue('green_ratio_raw'),fieldValue('绿化率'))],['planning','开发商',projectValue('developer')],
+    ['property','物业公司',firstPresent(projectValue('property_manager'),fieldValue('物业公司'))],['property','物业费用',firstPresent(projectValue('management_fee_raw'),fieldValue('物业费','物业费用'))],
+    ['property','总车位数',fieldValue('车位')],['property','车位配比',fieldValue('车位配比')],['property','人车分流',fieldValue('人车分流')]
   ].map(([group,label,value])=>({group,label,value:present(value)?String(value):null}));
   const groups=[['basic','基本情况'],['planning','总体规划'],['property','物业与停车']]
     .map(([id,label])=>({id,label,items:profileFields.filter(item=>item.group===id)}));
   const extendedFields=[
-    ['来源楼盘名',firstPresent(fields['备案名称'],fields['楼盘名称'],project.name)],['开盘时间',opening],['交付时间',delivery],
-    ['建筑层高',firstPresent(fields['建筑层高'],fields['层高情况'],fields['层高'])],['楼栋总数',firstPresent(fields['楼栋总数'],fields['楼栋数'])],
-    ['楼层状况',firstPresent(fields['楼层状况'],fields['楼层情况'],fields['楼层'])],['户型面积',firstPresent(fields['户型面积'],fields['主力户型'])],['装修情况',firstPresent(fields['装修情况'],fields['装修标准'],fields['装修'])],
-    ['可售车位',firstPresent(fields['可售车位'],fields['可售车位数'])],['车位价格',fields['车位价格']],['立面材料',firstPresent(fields['立面材料'],fields['外立面'])],
-    ['项目公司',fields['项目公司']],['开发品牌',fields['开发品牌']]
+    ['备案 / 来源楼盘名',firstPresent(fieldValue('备案名称','楼盘名称'),projectValue('name'))],['开盘时间',opening],['交付时间',delivery],['房龄参考',buildingAge],
+    ['建筑层高',fieldValue('建筑层高','层高情况','层高')],['楼栋总数',fieldValue('楼栋总数','楼栋数')],
+    ['楼层状况',fieldValue('楼层状况','楼层情况','楼层')],['户型面积',fieldValue('户型面积','主力户型')],['装修情况',fieldValue('装修情况','装修标准','装修')],
+    ['可售车位',fieldValue('可售车位','可售车位数')],['车位价格',fieldValue('车位价格')],['立面材料',fieldValue('立面材料','外立面')],
+    ['项目公司',fieldValue('项目公司')],['开发品牌',fieldValue('开发品牌')]
   ].map(([label,value])=>({label,value:present(value)?String(value):null}));
-  const surrounding=[['小区设施',fields['小区配套']],['交通',fields['交通情况']],['教育',fields['教育']],['医疗',fields['医疗']],['商业',fields['商业']],['办公',fields['办公']],['景观',fields['景观']],['周边配套',fields['周边配套']]]
+  const surrounding=[['小区设施',fieldValue('小区配套')],['交通',fieldValue('交通情况')],['教育',fieldValue('教育')],['医疗',fieldValue('医疗')],['商业',fieldValue('商业')],['办公',fieldValue('办公')],['景观',fieldValue('景观')],['周边配套',fieldValue('周边配套')]]
     .filter(([,value])=>present(value)).map(([label,value])=>({label,value:String(value)}));
   const known=profileFields.filter(item=>present(item.value)).length+Number(present(timing.value))+Number(positiveNumber(price.value)!==null);
   const total=profileFields.length+2,missing=total-known,missingRate=missing/total;
   const extendedKnown=extendedFields.filter(item=>present(item.value)).length,extendedTotal=extendedFields.length;
-  return {projectRow,project,price,timing,timingFacts,fields:profileFields,groups,extendedFields,extendedKnown,extendedTotal,
+  const sourceIds=[...new Set(projectRows.map(row=>row?.source_id).filter(Boolean))];
+  return {projectRow,project,projectRows,sourceIds,price,timing,timingFacts,fields:profileFields,groups,extendedFields,extendedKnown,extendedTotal,
     extendedMissing:extendedTotal-extendedKnown,extendedMissingPercent:Math.round((extendedTotal-extendedKnown)/extendedTotal*100),surrounding,
     known,total,missing,missingRate,missingPercent:Math.round(missingRate*100),passesCompleteness:missingRate<0.4,
-    observedAt:profileDate(project.detail_observed_at||projectRow?.observed_at),sourceId:projectRow?.source_id||null};
+    observedAt,sourceId:projectRow?.source_id||null};
 }
 export function priceMatches(p,s,today){
   if(p.kind!==s.priceKind)return false;

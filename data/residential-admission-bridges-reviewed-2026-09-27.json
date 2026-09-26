@@ -3,7 +3,7 @@
   "reviewed": true,
   "reviewed_at": "2026-09-27",
   "source_as_of": "2026-09-08",
-  "scope_policy": "仅将逐条锁定的 2026 年官方招生关系挂接到同区 OSM 住宅实体；官方小区名必须在该实体的项目名或已取证别名中逐字命中。不迁移价格、楼盘、帖子、候选池或历史快照。",
+  "scope_policy": "仅将逐条锁定的 2026 年官方招生关系挂接到同区 OSM 住宅实体；身份必须由项目名/别名逐字命中，或经逐条审核的“官方名+项目后缀”、“开发商品牌前缀+官方名”精确组合证明。不迁移价格、楼盘、帖子、候选池或历史快照。",
   "bridges": [
     {
       "source_entity_id": "candidate:residential:2623a2190a75ed197895",
@@ -348,6 +348,33 @@
       "identity_basis": "exact_official_name_in_project_name_or_alias",
       "admission_id_set": {"count": 1, "sha256": "fae93e5d436fa83aed379e23b71ddf31f0251bb8083857ef0b2e441148932f31"},
       "target_admission_id_set": {"count": 1, "sha256": "c661440f7ad1cd52de7d9c426826312d5b7c09e7686c4fc9cd9f4ecd072d2c70"}
+    },
+    {
+      "source_entity_id": "local:residential:7bb91ffc08981e79bdb5",
+      "source_name": "钱塘春晓",
+      "target_entity_id": "osm:way:395935966",
+      "target_name": "钱塘春晓花园",
+      "district": "滨江区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:8450",
+      "identity_basis": "official_name_plus_project_suffix",
+      "project_suffix": "花园",
+      "evidence_note": "乐居项目名与 OSM 实体名均等于官方小区名‘钱塘春晓’加后缀‘花园’；仅迁移锁定的 5 条官方关系。",
+      "admission_id_set": {"count": 5, "sha256": "4b6717eb240bbd463b812a26431d97171d2be9b70c16d163b6c5c02bf0477208"},
+      "target_admission_id_set": {"count": 8, "sha256": "b46f50695eb1382d10879368828ccd58b991e5752bdaffa2ee81b77afa3a8d6f"}
+    },
+    {
+      "source_entity_id": "local:residential:c0b83a8d32c975b9d8e9",
+      "source_name": "宸鹭晴语轩",
+      "target_entity_id": "osm:way:1529298587",
+      "target_name": "西房宸鹭晴语轩",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:187548",
+      "identity_basis": "project_brand_prefix_plus_official_name",
+      "brand_prefix": "西房",
+      "evidence_note": "乐居项目名与 OSM 实体名均等于开发商品牌‘西房’加官方小区名‘宸鹭晴语轩’，开发商字段同时明记‘西房’；仅迁移锁定的 4 条官方关系。",
+      "admission_id_set": {"count": 4, "sha256": "0df17a64968d3440e3c9e24be2c1fb27760830e08540f95df4dcc80fdf8cee30"}
     }
   ]
 }

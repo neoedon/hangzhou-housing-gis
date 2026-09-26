@@ -150,6 +150,63 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "name changed inside admission"):
             integrate(self.builder, self.catalogue())
 
+    def test_official_name_plus_project_suffix_requires_exact_composition(self):
+        self.db.execute(
+            "UPDATE entities SET name='备案小区名花园' WHERE id='osm:way:target'"
+        )
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({"name": "备案小区名花园", "aliases": []}),),
+        )
+        bridge = {
+            "target_name": "备案小区名花园",
+            "identity_basis": "official_name_plus_project_suffix",
+            "project_suffix": "公寓",
+        }
+        with self.assertRaisesRegex(ValueError, "suffix do not exactly compose"):
+            integrate(self.builder, self.catalogue(bridge=bridge))
+        bridge["project_suffix"] = "花园"
+        result = integrate(self.builder, self.catalogue(bridge=bridge))
+        self.assertEqual((result["bridges"], result["admissions"]), (1, 1))
+
+    def test_brand_prefix_requires_exact_target_and_developer_corroboration(self):
+        self.db.execute(
+            "UPDATE entities SET name='西房备案小区名' WHERE id='osm:way:target'"
+        )
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (
+                dump(
+                    {
+                        "name": "西房备案小区名",
+                        "aliases": [],
+                        "developer": "杭州其他房地产有限公司",
+                    }
+                ),
+            ),
+        )
+        bridge = {
+            "target_name": "西房备案小区名",
+            "identity_basis": "project_brand_prefix_plus_official_name",
+            "brand_prefix": "西房",
+        }
+        with self.assertRaisesRegex(ValueError, "developer brand prefix"):
+            integrate(self.builder, self.catalogue(bridge=bridge))
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (
+                dump(
+                    {
+                        "name": "西房备案小区名",
+                        "aliases": [],
+                        "developer": "杭州西湖房地产集团有限公司（西房）",
+                    }
+                ),
+            ),
+        )
+        result = integrate(self.builder, self.catalogue(bridge=bridge))
+        self.assertEqual((result["bridges"], result["admissions"]), (1, 1))
+
     def test_existing_target_relation_requires_lock_and_preserves_both_rows(self):
         self.db.execute(
             "INSERT INTO admissions VALUES(?,?,?,?,?,?,?,?)",

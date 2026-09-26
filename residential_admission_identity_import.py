@@ -1,11 +1,13 @@
 """Apply reviewed residential identities to official admission relations only.
 
-Each bridge is constrained to one district, one OSM target, one project record
-that contains the official residential name verbatim, and one hash-locked set
-of 2026 admission IDs.  When the target already has official relations, that
-pre-existing ID set is independently hash-locked before the reviewed alias is
-attached.  No prices, projects, posts, candidates, or history are moved by this
-importer.
+Each bridge is constrained to one district, one OSM target, one reviewed
+project record, one exact identity rule, and one hash-locked set of 2026
+admission IDs.  Supported identity rules are a verbatim project name/alias, an
+exact official-name-plus-project-suffix composition, or an exact
+developer-corroborated brand-prefix-plus-official-name composition.  When the
+target already has official relations, that pre-existing ID set is
+independently hash-locked before the reviewed identity is attached.  No prices,
+projects, posts, candidates, or history are moved by this importer.
 """
 from __future__ import annotations
 
@@ -33,6 +35,52 @@ def _project(builder, project_id, target_entity_id):
             f"Residential admission project evidence changed: {project_id}"
         )
     return json.loads(row[1])
+
+
+def _verify_identity_basis(bridge, source, target, project):
+    from build_data import norm
+
+    basis = bridge.get("identity_basis")
+    source_name = norm(source["name"])
+    target_name = norm(target["name"])
+    project_names = {
+        norm(value)
+        for value in [project.get("name"), *(project.get("aliases") or [])]
+        if value
+    }
+
+    if basis == "exact_official_name_in_project_name_or_alias":
+        if source_name not in project_names:
+            raise ValueError(
+                "Official residential name is absent from target project name or aliases"
+            )
+        return {"basis": basis}
+
+    if basis == "official_name_plus_project_suffix":
+        suffix = norm(bridge.get("project_suffix"))
+        expected = source_name + suffix
+        if not suffix or target_name != expected or expected not in project_names:
+            raise ValueError(
+                "Official residential name and reviewed project suffix do not exactly compose the target"
+            )
+        return {"basis": basis, "project_suffix": bridge["project_suffix"]}
+
+    if basis == "project_brand_prefix_plus_official_name":
+        brand = norm(bridge.get("brand_prefix"))
+        expected = brand + source_name
+        developer = norm(project.get("developer"))
+        if (
+            not brand
+            or target_name != expected
+            or expected not in project_names
+            or brand not in developer
+        ):
+            raise ValueError(
+                "Reviewed developer brand prefix and official residential name do not exactly compose the target"
+            )
+        return {"basis": basis, "brand_prefix": bridge["brand_prefix"]}
+
+    raise ValueError("Unsupported residential admission identity basis")
 
 
 def _reviewed_admission_ids(builder, bridge, source_entity_id, year):
@@ -102,7 +150,7 @@ def _locked_target_admission_ids(builder, bridge, target_entity_id, year):
 
 
 def integrate(builder, catalogue_path=None):
-    from build_data import APP, digest, dump, norm
+    from build_data import APP, digest, dump
 
     path = catalogue_path or APP / "data" / CATALOGUE
     if not path.is_file():
@@ -155,15 +203,10 @@ def integrate(builder, catalogue_path=None):
             raise ValueError("Residential admission reviewed entity name changed")
         if year != "2026":
             raise ValueError("Residential admission bridge is limited to reviewed 2026 relations")
-        if bridge.get("identity_basis") != "exact_official_name_in_project_name_or_alias":
-            raise ValueError("Unsupported residential admission identity basis")
-
         project = _project(builder, bridge.get("evidence_project_id"), target_entity_id)
-        project_names = [project.get("name"), *(project.get("aliases") or [])]
-        if norm(source["name"]) not in {norm(value) for value in project_names if value}:
-            raise ValueError(
-                "Official residential name is absent from target project name or aliases"
-            )
+        identity_evidence = _verify_identity_basis(
+            bridge, source, target, project
+        )
         target_admission_ids = _locked_target_admission_ids(
             builder, bridge, target_entity_id, year
         )
@@ -197,6 +240,7 @@ def integrate(builder, catalogue_path=None):
                         "year": year,
                         "evidence_project_id": bridge["evidence_project_id"],
                         "identity_basis": bridge["identity_basis"],
+                        "identity_evidence": identity_evidence,
                         "admission_record_count": len(admission_ids),
                         "admission_record_sha256": digest(dump(admission_ids)),
                         "preexisting_target_admission_count": len(target_admission_ids),

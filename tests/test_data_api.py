@@ -153,13 +153,13 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_admission_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["admissions"]), (50, 117))
-        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 44, "拱墅区": 73})
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (51, 119))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 44, "拱墅区": 75})
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-admission-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 50)
+        self.assertEqual(len(mappings), 51)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))

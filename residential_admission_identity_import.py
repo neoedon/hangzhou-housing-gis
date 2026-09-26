@@ -68,7 +68,9 @@ def _verify_identity_basis(bridge, source, target, project):
 
     if basis == "project_name_or_alias_plus_official_suffix":
         suffix = norm(bridge.get("official_suffix"))
-        allowed_suffixes = {norm(value) for value in ("公寓", "花园", "府", "轩")}
+        allowed_suffixes = {
+            norm(value) for value in ("公寓", "花园", "家园", "府", "轩")
+        }
         matching_project_names = sorted(
             value for value in project_names if source_name == value + suffix
         )

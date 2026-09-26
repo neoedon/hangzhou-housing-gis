@@ -212,7 +212,7 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
             "UPDATE entities SET name='项目地图名' WHERE id='osm:way:target'"
         )
         self.db.execute(
-            "UPDATE entities SET name='项目别名公寓' WHERE id='local:official-home'"
+            "UPDATE entities SET name='项目别名家园' WHERE id='local:official-home'"
         )
         self.db.execute(
             "UPDATE projects SET payload=? WHERE id='project:one'",
@@ -220,17 +220,17 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
         )
         self.db.execute(
             "UPDATE admissions SET payload=? WHERE id='admission:one'",
-            (dump({"residential_name": "项目别名公寓", "display_name": "项目别名公寓"}),),
+            (dump({"residential_name": "项目别名家园", "display_name": "项目别名家园"}),),
         )
         bridge = {
-            "source_name": "项目别名公寓",
+            "source_name": "项目别名家园",
             "target_name": "项目地图名",
             "identity_basis": "project_name_or_alias_plus_official_suffix",
             "official_suffix": "住宅",
         }
         with self.assertRaisesRegex(ValueError, "allowed suffix"):
             integrate(self.builder, self.catalogue(bridge=bridge))
-        bridge["official_suffix"] = "公寓"
+        bridge["official_suffix"] = "家园"
         result = integrate(self.builder, self.catalogue(bridge=bridge))
         self.assertEqual((result["bridges"], result["admissions"]), (1, 1))
         mapping = json.loads(

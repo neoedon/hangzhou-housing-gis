@@ -585,6 +585,19 @@
       "admission_id_set": {"count": 2, "sha256": "7b28cf21a6e2cd7833749e44166c58fed1aa18c77aaf2ae4a20c1dfe27e8e063"}
     },
     {
+      "source_entity_id": "local:residential:f3f7188527a6b8d61e0f",
+      "source_name": "田园绿郡家园",
+      "target_entity_id": "osm:way:888283895",
+      "target_name": "朗诗田园绿郡",
+      "district": "拱墅区",
+      "year": "2026",
+      "evidence_project_id": "leju:hangzhou:34756",
+      "identity_basis": "project_name_or_alias_plus_official_suffix",
+      "official_suffix": "家园",
+      "evidence_note": "官方名逐字等于同区唯一项目明确别名‘田园绿郡’加住宅后缀‘家园’；仅迁移锁定的 2 条官方关系。",
+      "admission_id_set": {"count": 2, "sha256": "a251c6cd5cbba152914b60fda5130b043aa2ff1023f3db73c95367acb48e6f75"}
+    },
+    {
       "source_entity_id": "local:residential:ec5362437ee3dd9e5f88",
       "source_name": "阅城公寓",
       "target_entity_id": "osm:way:938415038",

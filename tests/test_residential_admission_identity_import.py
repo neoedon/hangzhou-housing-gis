@@ -207,6 +207,42 @@ class ResidentialAdmissionIdentityTests(unittest.TestCase):
         result = integrate(self.builder, self.catalogue(bridge=bridge))
         self.assertEqual((result["bridges"], result["admissions"]), (1, 1))
 
+    def test_project_name_or_alias_plus_official_suffix_is_exact_and_allow_listed(self):
+        self.db.execute(
+            "UPDATE entities SET name='项目地图名' WHERE id='osm:way:target'"
+        )
+        self.db.execute(
+            "UPDATE entities SET name='项目别名公寓' WHERE id='local:official-home'"
+        )
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({"name": "项目地图名", "aliases": ["项目别名"]}),),
+        )
+        self.db.execute(
+            "UPDATE admissions SET payload=? WHERE id='admission:one'",
+            (dump({"residential_name": "项目别名公寓", "display_name": "项目别名公寓"}),),
+        )
+        bridge = {
+            "source_name": "项目别名公寓",
+            "target_name": "项目地图名",
+            "identity_basis": "project_name_or_alias_plus_official_suffix",
+            "official_suffix": "住宅",
+        }
+        with self.assertRaisesRegex(ValueError, "allowed suffix"):
+            integrate(self.builder, self.catalogue(bridge=bridge))
+        bridge["official_suffix"] = "公寓"
+        result = integrate(self.builder, self.catalogue(bridge=bridge))
+        self.assertEqual((result["bridges"], result["admissions"]), (1, 1))
+        mapping = json.loads(
+            self.db.execute(
+                "SELECT options FROM mappings "
+                "WHERE source_id='residential-admission-identity-bridges'"
+            ).fetchone()[0]
+        )
+        self.assertEqual(
+            mapping["identity_evidence"]["matched_project_name"], "项目别名"
+        )
+
     def test_existing_target_relation_requires_lock_and_preserves_both_rows(self):
         self.db.execute(
             "INSERT INTO admissions VALUES(?,?,?,?,?,?,?,?)",

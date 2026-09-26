@@ -3,9 +3,10 @@
 Each bridge is constrained to one district, one OSM target, one reviewed
 project record, one exact identity rule, and one hash-locked set of 2026
 admission IDs.  Supported identity rules are a verbatim project name/alias, an
-exact official-name-plus-project-suffix composition, or an exact
-developer-corroborated brand-prefix-plus-official-name composition.  When the
-target already has official relations, that pre-existing ID set is
+exact official-name-plus-project-suffix composition, an official residential
+name that exactly equals a project name/alias plus an allow-listed residential
+suffix, or an exact developer-corroborated brand-prefix-plus-official-name
+composition.  When the target already has official relations, that pre-existing ID set is
 independently hash-locked before the reviewed identity is attached.  No prices,
 projects, posts, candidates, or history are moved by this importer.
 """
@@ -64,6 +65,22 @@ def _verify_identity_basis(bridge, source, target, project):
                 "Official residential name and reviewed project suffix do not exactly compose the target"
             )
         return {"basis": basis, "project_suffix": bridge["project_suffix"]}
+
+    if basis == "project_name_or_alias_plus_official_suffix":
+        suffix = norm(bridge.get("official_suffix"))
+        allowed_suffixes = {norm(value) for value in ("公寓", "花园", "府", "轩")}
+        matching_project_names = sorted(
+            value for value in project_names if source_name == value + suffix
+        )
+        if suffix not in allowed_suffixes or not matching_project_names:
+            raise ValueError(
+                "Official residential name does not exactly equal a reviewed project name or alias plus an allowed suffix"
+            )
+        return {
+            "basis": basis,
+            "official_suffix": bridge["official_suffix"],
+            "matched_project_name": matching_project_names[0],
+        }
 
     if basis == "project_brand_prefix_plus_official_name":
         brand = norm(bridge.get("brand_prefix"))

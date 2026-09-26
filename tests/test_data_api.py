@@ -153,13 +153,13 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_admission_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["admissions"]), (34, 83))
-        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 34, "拱墅区": 49})
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (50, 117))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 44, "拱墅区": 73})
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-admission-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 34)
+        self.assertEqual(len(mappings), 50)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -207,6 +207,50 @@ class DataTests(unittest.TestCase):
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM admissions WHERE home_id='osm:way:1167135393' AND year='2026'"
         ).fetchone()[0], 2)
+        expected_suffix_targets = {
+            'osm:way:1354664560': ('银杏汇公寓', 2),
+            'osm:way:605342695': ('盛元慧谷花园', 2),
+            'osm:way:535621387': ('春江彼岸公寓', 2),
+            'osm:way:1165942967': ('悦望荟轩', 2),
+            'osm:way:673543502': ('香槟国际公寓', 2),
+            'osm:way:1529298571': ('香栖天第府', 4),
+            'osm:way:888306411': ('运河之星公寓', 2),
+            'osm:way:1120937070': ('品悦府公寓', 2),
+            'osm:way:702349828': ('御星公寓', 2),
+            'osm:way:567818415': ('锦绣桃源公寓', 2),
+            'osm:way:621254368': ('晓月映翠公寓', 2),
+            'osm:way:673541826': ('天銮公寓', 2),
+            'osm:way:513482888': ('晓宸府', 2),
+            'osm:way:703785797': ('珑玺公寓', 2),
+            'osm:way:665268805': ('碧玺轩', 2),
+        }
+        for target_id, (official_name, count) in expected_suffix_targets.items():
+            rows = self.db.execute(
+                "SELECT DISTINCT json_extract(payload,'$.residential_name') "
+                "FROM admissions WHERE home_id=? AND year='2026'",
+                (target_id,),
+            ).fetchall()
+            self.assertEqual({row[0] for row in rows}, {official_name})
+            self.assertEqual(
+                self.db.execute(
+                    "SELECT count(*) FROM admissions WHERE home_id=? AND year='2026'",
+                    (target_id,),
+                ).fetchone()[0],
+                count,
+            )
+        self.assertEqual(
+            {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT json_extract(payload,'$.residential_name') "
+                    "FROM admissions WHERE home_id='osm:way:938415038' AND year='2026'"
+                )
+            },
+            {'华盛达阅城', '阅城公寓'},
+        )
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:938415038' AND year='2026'"
+        ).fetchone()[0], 4)
         self.assertEqual(
             {
                 row[0]

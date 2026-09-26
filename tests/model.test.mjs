@@ -194,7 +194,7 @@ test('new-project historical references require explicit source wording and refe
   assert.equal(priceMarket({source_id:'incremental-price:fang:123',kind:'deal'}),'resale');
   assert.equal(priceMarket({source_id:'incremental-price:fang:123',kind:'reference'}),'unknown');
 });
-test('community profile exposes delivery and reference-image fields from current project payloads',()=>{
+test('community profile exposes delivery and reference-price fields from current project payloads',()=>{
   const profile=communityProfile({...house,address:'地图地址'}, {projects:[{source_id:'new-project:p',observed_at:'2026-09-09',payload:{
     detail_observed_at:'2026-09-09T00:00:00+08:00',address:'平台地址',developer:'测试置业',property_type:'住宅',building_types:'高层',
     units_raw:'512户',floor_area_ratio_raw:'2.7',green_ratio_raw:'35%',building_area_raw:'96152㎡',land_area_raw:'35612㎡',
@@ -208,6 +208,16 @@ test('community profile exposes delivery and reference-image fields from current
   assert.deepEqual(profile.surrounding,[{label:'交通',value:'距地铁约400米'}]);
   assert.equal(profile.sourceId,'new-project:p');assert.equal(profile.known,18);assert.equal(profile.total,18);
   assert.equal(profile.missing,0);assert.equal(profile.missingPercent,0);assert.equal(profile.passesCompleteness,true);
+});
+test('community profile falls back to a disclosed opening date when delivery is unavailable',()=>{
+  const profile=communityProfile(house,{projects:[{source_id:'new-project:opening',observed_at:'2026-09-10',payload:{
+    opening_date_raw:'2023年12月24日',address:'滨江区测试地址',developer:'测试置业',property_type:'住宅',building_types:'高层',
+    units_raw:'600户',floor_area_ratio_raw:'2.4',green_ratio_raw:'30%',building_area_raw:'88000㎡',land_area_raw:'36000㎡',
+    property_manager:'测试物业',property_rights:'70年',field_values:{物业费:'3元/㎡/月',车位:'720个',车位配比:'1:1.2',人车分流:'是'},
+    prices:[{amount:42000,unit:'元/㎡',price_type:'platform_reference',observed_at:'2026-09-10'}]
+  }}]});
+  assert.deepEqual(profile.timing,{value:'2023年12月24日',label:'开盘时间',basis:'来源页面开盘字段'});
+  assert.equal(profile.price.value,42000);assert.equal(profile.price.label,'新房平台参考均价');
 });
 test('community profile prioritizes dated market reference and labels historical deal fallback honestly',()=>{
   const reference=communityProfile(house,{market_snapshots:[{source_id:'market:s',observed_at:'2026-09-09',payload:{reference_unit_yuan_sqm:82429,source_as_of:'2026-08',metric_semantics:'小区参考均价'}}],prices:[{kind:'deal',unit_yuan_sqm:30000,event_date:'2026-06-01'}]});

@@ -376,16 +376,18 @@ input[type=date]{padding-inline:6px}
 .profile-highlights span,.profile-highlights small{display:block;color:var(--muted);font-size:12px;line-height:1.55}
 .profile-highlights strong{display:block;margin:4px 0;color:#315d35;font-size:19px;font-weight:650;line-height:1.35;letter-spacing:-.2px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .profile-highlights strong small{display:inline;color:inherit;font-size:12px;font-weight:500}
-.profile-list,.profile-surroundings dl{display:grid;grid-template-columns:1fr;gap:0;margin:0}
+.profile-groups{display:grid;grid-template-columns:1fr;gap:0}
+.profile-group{padding:13px 0 3px;border-top:1px solid var(--line)}
+.profile-group-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:3px}
+.profile-group-title h4{margin:0;color:#324b3d;font-size:14px;font-weight:700;letter-spacing:.01em}
+.profile-group-title small{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.profile-group dl{display:grid;grid-template-columns:1fr;gap:0;margin:0}
 .profile-row{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;padding:8px 0;border-bottom:1px solid #edf0e8;font-size:13px;line-height:1.65}
 .profile-row dt{color:#7b867d}
 .profile-row dd{min-width:0;margin:0;color:#33443b;overflow-wrap:anywhere}
 .profile-row.is-missing dd{color:#9aa39b}
-.profile-surroundings{margin-top:13px;border-top:1px solid var(--line)}
-.profile-surroundings>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 8px;color:#40564a;font-size:13px;font-weight:650;cursor:pointer}
-.profile-surroundings[open]>summary .hi-icon{transform:rotate(180deg)}
-.profile-surroundings dl{grid-template-columns:1fr}
 .profile-surroundings .profile-row{grid-template-columns:76px minmax(0,1fr)}
+.profile-surroundings .micro{margin:9px 0 5px}
 .profile-evidence{display:flex;align-items:flex-start;gap:7px 10px;flex-wrap:wrap;margin-top:13px;padding:10px 11px;border-radius:8px;background:#f6f7f2;color:var(--muted);font-size:12px;line-height:1.65}
 .profile-evidence>span{flex:1 1 190px}
 .profile-evidence .text-button{flex:none}

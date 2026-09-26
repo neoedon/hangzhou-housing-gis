@@ -114,17 +114,20 @@ export function communityProfile(entity={},detail={}){
   const propertyType=Array.isArray(project.property_type)?project.property_type.filter(Boolean).join('、'):project.property_type;
   const builtYear=firstPresent(entity?.candidate?.built_year,snapshots[0]?.payload?.built_year_source,fields['建成年代'],fields['竣工时间']);
   const profileFields=[
-    ['楼盘位置',firstPresent(project.address,entity.address)],['建成年代',builtYear],['开发商',project.developer],
-    ['物业类型',firstPresent(propertyType,fields['物业类型'])],['建筑类型',firstPresent(project.building_types,fields['建筑类型'])],['产权年限',firstPresent(project.property_rights,fields['产权年限'])],
-    ['总户数',firstPresent(project.units_raw,fields['规划户数'])],['容积率',firstPresent(project.floor_area_ratio_raw,fields['容积率'])],['绿化率',firstPresent(project.green_ratio_raw,fields['绿化率'])],
-    ['建筑面积',firstPresent(project.building_area_raw,fields['建筑面积'])],['占地面积',firstPresent(project.land_area_raw,fields['占地面积'])],['物业公司',firstPresent(project.property_manager,fields['物业公司'])],
-    ['物业费用',firstPresent(project.management_fee_raw,fields['物业费'],fields['物业费用'])],['总车位数',fields['车位']],['车位配比',fields['车位配比']],['人车分流',fields['人车分流']]
-  ].map(([label,value])=>({label,value:present(value)?String(value):null}));
+    ['basic','楼盘位置',firstPresent(project.address,entity.address)],['basic','建成年代',builtYear],
+    ['basic','物业类型',firstPresent(propertyType,fields['物业类型'])],['basic','建筑类型',firstPresent(project.building_types,fields['建筑类型'])],['basic','产权年限',firstPresent(project.property_rights,fields['产权年限'])],
+    ['planning','建筑面积',firstPresent(project.building_area_raw,fields['建筑面积'])],['planning','占地面积',firstPresent(project.land_area_raw,fields['占地面积'])],
+    ['planning','总户数',firstPresent(project.units_raw,fields['规划户数'])],['planning','容积率',firstPresent(project.floor_area_ratio_raw,fields['容积率'])],['planning','绿化率',firstPresent(project.green_ratio_raw,fields['绿化率'])],['planning','开发商',project.developer],
+    ['property','物业公司',firstPresent(project.property_manager,fields['物业公司'])],['property','物业费用',firstPresent(project.management_fee_raw,fields['物业费'],fields['物业费用'])],
+    ['property','总车位数',fields['车位']],['property','车位配比',fields['车位配比']],['property','人车分流',fields['人车分流']]
+  ].map(([group,label,value])=>({group,label,value:present(value)?String(value):null}));
+  const groups=[['basic','基本情况'],['planning','总体规划'],['property','物业与停车']]
+    .map(([id,label])=>({id,label,items:profileFields.filter(item=>item.group===id)}));
   const surrounding=[['小区设施',fields['小区配套']],['交通',fields['交通情况']],['周边配套',fields['周边配套']]]
     .filter(([,value])=>present(value)).map(([label,value])=>({label,value:String(value)}));
   const known=profileFields.filter(item=>present(item.value)).length+Number(present(timing.value))+Number(positiveNumber(price.value)!==null);
   const total=profileFields.length+2,missing=total-known,missingRate=missing/total;
-  return {projectRow,project,price,timing,fields:profileFields,surrounding,
+  return {projectRow,project,price,timing,fields:profileFields,groups,surrounding,
     known,total,missing,missingRate,missingPercent:Math.round(missingRate*100),passesCompleteness:missingRate<0.4,
     observedAt:profileDate(project.detail_observed_at||projectRow?.observed_at),sourceId:projectRow?.source_id||null};
 }

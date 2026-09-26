@@ -205,6 +205,7 @@ test('community profile exposes delivery and reference-price fields from current
   assert.equal(profile.price.value,46000);assert.equal(profile.price.label,'新房平台参考均价');
   assert.equal(profile.fields.find(item=>item.label==='开发商').value,'测试置业');
   assert.equal(profile.fields.find(item=>item.label==='总车位数').value,'639个');
+  assert.deepEqual(profile.groups.map(group=>[group.id,group.label,group.items.length]),[['basic','基本情况',5],['planning','总体规划',6],['property','物业与停车',5]]);
   assert.deepEqual(profile.surrounding,[{label:'交通',value:'距地铁约400米'}]);
   assert.equal(profile.sourceId,'new-project:p');assert.equal(profile.known,18);assert.equal(profile.total,18);
   assert.equal(profile.missing,0);assert.equal(profile.missingPercent,0);assert.equal(profile.passesCompleteness,true);

@@ -34,3 +34,11 @@ test('community comparison reuses the graduated relation plan instead of showing
   assert.match(app,/state\.admission==='all'\?'全部类型':state\.admission/);
   assert.doesNotMatch(app,/没有 \$\{esc\(state\.year\)\} 年名单关系，未知/);
 });
+test('community detail and comparison both expose delivery or opening time and evidence-bounded average price',()=>{
+  assert.match(app,/data-profile-highlight="timing"/);
+  assert.match(app,/data-profile-highlight="price"/);
+  assert.match(app,/'交付 \/ 开盘'/);
+  assert.match(app,/'均价 \/ 行情'/);
+  assert.match(app,/p:communityProfile\(e,d\)/);
+  assert.match(app,/均价按可用来源优先级展示，不混合新房参考价、挂牌与历史成交/);
+});

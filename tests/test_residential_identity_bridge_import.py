@@ -181,6 +181,47 @@ class ResidentialIdentityBridgeTests(unittest.TestCase):
         }
         self.assertEqual(integrate(self.builder, self.catalogue(bridge=bridge))["prices"], 1)
 
+    def test_project_phase_suffix_requires_exact_name_and_permit_evidence(self):
+        self.db.execute("UPDATE entities SET name='项目名一区' WHERE id='local:source'")
+        self.db.execute("UPDATE entities SET name='项目名' WHERE id='osm:way:target'")
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({
+                "name": "项目名",
+                "aliases": [],
+                "presale_permits": [{"buildings_raw": "一区1#、一区8#"}],
+            }),),
+        )
+        bridge = {
+            "source_name": "项目名一区",
+            "target_name": "项目名",
+            "identity_basis": "project_phase_suffix",
+            "base_name": "项目名",
+            "phase_suffix": "一区",
+        }
+        self.assertEqual(integrate(self.builder, self.catalogue(bridge=bridge))["prices"], 1)
+
+    def test_project_phase_suffix_rejects_missing_permit_phase(self):
+        self.db.execute("UPDATE entities SET name='项目名一区' WHERE id='local:source'")
+        self.db.execute("UPDATE entities SET name='项目名' WHERE id='osm:way:target'")
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({
+                "name": "项目名",
+                "aliases": [],
+                "presale_permits": [{"buildings_raw": "二区1#"}],
+            }),),
+        )
+        bridge = {
+            "source_name": "项目名一区",
+            "target_name": "项目名",
+            "identity_basis": "project_phase_suffix",
+            "base_name": "项目名",
+            "phase_suffix": "一区",
+        }
+        with self.assertRaisesRegex(ValueError, "phase marker is absent"):
+            integrate(self.builder, self.catalogue(bridge=bridge))
+
     def test_unreviewed_catalogue_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "not reviewed"):
             integrate(self.builder, self.catalogue(reviewed=False))

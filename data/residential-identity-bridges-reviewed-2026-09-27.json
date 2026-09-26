@@ -226,6 +226,22 @@
         "deal:09aeea22963490d7fcc47e42bedbd31e5531e44935b9e28a6e2b81e0f3f041f1"
       ],
       "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:0844b6ff0b1557a00063",
+      "source_name": "杭曜置地中心一区",
+      "target_entity_id": "osm:way:1350668582",
+      "target_name": "杭曜置地中心",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:187118",
+      "identity_basis": "project_phase_suffix",
+      "base_name": "杭曜置地中心",
+      "phase_suffix": "一区",
+      "evidence_note": "成交源名称由项目名杭曜置地中心与分期后缀一区严格组成；同一项目档案的预售证楼栋逐字列出一区。",
+      "price_ids": [
+        "deal:10c6ea8dc782754fd9d30a9a9d2ceecdd693d020649439953afb3f528cfeec58"
+      ],
+      "market_snapshot_ids": []
     }
   ]
 }

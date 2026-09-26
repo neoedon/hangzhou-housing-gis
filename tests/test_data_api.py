@@ -111,12 +111,12 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_identity_bridges_attach_only_market_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["prices"], bridges["market_snapshots"]), (15, 89, 2))
+        self.assertEqual((bridges["bridges"], bridges["prices"], bridges["market_snapshots"]), (16, 90, 2))
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 15)
+        self.assertEqual(len(mappings), 16)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -139,6 +139,12 @@ class DataTests(unittest.TestCase):
             ('deal:09aeea22963490d7fcc47e42bedbd31e5531e44935b9e28a6e2b81e0f3f041f1',)
         ).fetchone()
         self.assertEqual(tuple(midtown), ('2026-06-03', 350.0, 34090.0, 102.0))
+        hangyao = self.db.execute(
+            "SELECT event_date,total_wan,unit_yuan_sqm,area_sqm,json_extract(payload,'$.community') "
+            "FROM prices WHERE entity_id='osm:way:1350668582' AND id=?",
+            ('deal:10c6ea8dc782754fd9d30a9a9d2ceecdd693d020649439953afb3f528cfeec58',)
+        ).fetchone()
+        self.assertEqual(tuple(hangyao), ('2026-06-07', 500.0, 42155.0, 118.0, '杭曜置地中心一区'))
         self.assertEqual(self.db.execute(
             "SELECT json_extract(payload,'$.reference_unit_yuan_sqm') FROM market_snapshots "
             "WHERE entity_id='osm:way:673543501'"

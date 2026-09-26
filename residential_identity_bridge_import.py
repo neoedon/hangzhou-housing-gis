@@ -100,6 +100,18 @@ def _verify_identity_basis(source, target, project, bridge, norm):
         if not evidence or norm(evidence) not in norm(text) or norm(source["name"]) not in norm(evidence):
             raise ValueError("Residential identity reviewed project text evidence changed")
         return
+    if basis == "project_phase_suffix":
+        base = bridge.get("base_name")
+        phase = bridge.get("phase_suffix")
+        if not base or not phase or norm(source["name"]) != norm(base) + norm(phase):
+            raise ValueError("Residential identity project phase no longer composes the source name")
+        allowed_bases = {norm(target["name"]), *(norm(value) for value in project_names if value)}
+        if norm(base) not in allowed_bases:
+            raise ValueError("Residential identity project phase base is absent from target evidence")
+        permits = project.get("presale_permits") or []
+        if not any(norm(phase) in norm(permit.get("buildings_raw")) for permit in permits):
+            raise ValueError("Residential identity project phase marker is absent from permit evidence")
+        return
     raise ValueError(f"Unsupported residential identity basis: {basis}")
 
 

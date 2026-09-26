@@ -111,12 +111,12 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_identity_bridges_attach_only_market_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["prices"], bridges["market_snapshots"]), (13, 87, 2))
+        self.assertEqual((bridges["bridges"], bridges["prices"], bridges["market_snapshots"]), (14, 88, 2))
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 13)
+        self.assertEqual(len(mappings), 14)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -131,6 +131,9 @@ class DataTests(unittest.TestCase):
             "SELECT count(*) FROM prices WHERE entity_id='osm:way:337801224'"
         ).fetchone()[0], 34)
         self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM prices WHERE entity_id='osm:way:589380851'"
+        ).fetchone()[0], 35)
+        self.assertEqual(self.db.execute(
             "SELECT json_extract(payload,'$.reference_unit_yuan_sqm') FROM market_snapshots "
             "WHERE entity_id='osm:way:673543501'"
         ).fetchone()[0], 46890)
@@ -138,13 +141,13 @@ class DataTests(unittest.TestCase):
     def test_reviewed_residential_admission_bridges_attach_only_official_relations(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_admission_identity_bridges"]
-        self.assertEqual((bridges["bridges"], bridges["admissions"]), (14, 32))
-        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 16, "拱墅区": 16})
+        self.assertEqual((bridges["bridges"], bridges["admissions"]), (28, 61))
+        self.assertEqual(bridges["admissions_by_district"], {"滨江区": 18, "拱墅区": 43})
         mappings = self.db.execute("""
             SELECT source_record,entity_id,options FROM mappings
             WHERE source_id='residential-admission-identity-bridges'
         """).fetchall()
-        self.assertEqual(len(mappings), 14)
+        self.assertEqual(len(mappings), 28)
         for source_entity_id, target_entity_id, raw_options in mappings:
             options = json.loads(raw_options)
             self.assertTrue(target_entity_id.startswith('osm:'))
@@ -162,6 +165,12 @@ class DataTests(unittest.TestCase):
         ).fetchone()[0], 5)
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM admissions WHERE home_id='osm:way:1167135365' AND year='2026'"
+        ).fetchone()[0], 2)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:1355080587' AND year='2026'"
+        ).fetchone()[0], 4)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM admissions WHERE home_id='osm:way:1001612427' AND year='2026'"
         ).fetchone()[0], 2)
 
     def test_price_enrichments_preserve_record_identity_and_evidence(self):

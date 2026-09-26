@@ -190,6 +190,26 @@
         "deal:63c461a87a3bdb2aad79e44df6d19b135627cdc5aa9fcb31bd8b021a1c3ccdf8"
       ],
       "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:b483345a0f088a8ffd07",
+      "source_name": "钱江彩虹城",
+      "target_entity_id": "osm:way:589380851",
+      "target_name": "彩虹城",
+      "district": "滨江区",
+      "evidence_project_id": "leju:hangzhou:8986",
+      "identity_basis": "brand_prefix_plus_project_name",
+      "brand_prefix": "钱江",
+      "base_name": "彩虹城",
+      "evidence_note": "成交源名称由开发商品牌钱江与项目名彩虹城严格组成；项目资料列明浙江钱江房地产开发公司。",
+      "price_id_set": {
+        "count": 1,
+        "sha256": "b37ef4ef1daa73156d722274f2fee1348cd378970a7aee0d32594cffcb2e7047"
+      },
+      "market_snapshot_id_set": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
     }
   ]
 }

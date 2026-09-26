@@ -198,15 +198,18 @@ test('community profile exposes delivery and reference-price fields from current
   const profile=communityProfile({...house,address:'地图地址'}, {projects:[{source_id:'new-project:p',observed_at:'2026-09-09',payload:{
     detail_observed_at:'2026-09-09T00:00:00+08:00',address:'平台地址',developer:'测试置业',property_type:'住宅',building_types:'高层',
     units_raw:'512户',floor_area_ratio_raw:'2.7',green_ratio_raw:'35%',building_area_raw:'96152㎡',land_area_raw:'35612㎡',
-    property_manager:'测试物业',property_rights:'住宅：70年',field_values:{最近交房:'2026年04月30日',物业费:'3.2元/㎡/月',车位:'639个',车位配比:'1:1.24',人车分流:'是',交通情况:'距地铁约400米'},
+    property_manager:'测试物业',property_rights:'住宅：70年',field_values:{楼盘名称:'测试花园',最近交房:'2026年04月30日',物业费:'3.2元/㎡/月',车位:'639个',车位配比:'1:1.24',人车分流:'是',
+      楼栋总数:'8幢',楼层状况:'28-34F',户型面积:'88-317㎡',装修情况:'毛坯交付',车位价格:'30万',立面材料:'石材干挂',医疗:'测试医院',交通情况:'距地铁约400米'},
     prices:[{amount:46000,unit:'元/㎡',price_type:'platform_reference',observed_at:'2026-09-09'}]
   }}]});
-  assert.deepEqual(profile.timing,{value:'2026年04月30日',label:'交付时间',basis:'来源页面“最近交房”字段'});
+  assert.deepEqual(profile.timing,{id:'delivery',value:'2026年04月30日',label:'交付时间',basis:'来源页面交房 / 入住字段',related:[]});
   assert.equal(profile.price.value,46000);assert.equal(profile.price.label,'新房平台参考均价');
   assert.equal(profile.fields.find(item=>item.label==='开发商').value,'测试置业');
   assert.equal(profile.fields.find(item=>item.label==='总车位数').value,'639个');
   assert.deepEqual(profile.groups.map(group=>[group.id,group.label,group.items.length]),[['basic','基本情况',5],['planning','总体规划',6],['property','物业与停车',5]]);
-  assert.deepEqual(profile.surrounding,[{label:'交通',value:'距地铁约400米'}]);
+  assert.equal(profile.extendedFields.find(item=>item.label==='楼栋总数').value,'8幢');
+  assert.equal(profile.extendedFields.find(item=>item.label==='装修情况').value,'毛坯交付');
+  assert.deepEqual(profile.surrounding,[{label:'交通',value:'距地铁约400米'},{label:'医疗',value:'测试医院'}]);
   assert.equal(profile.sourceId,'new-project:p');assert.equal(profile.known,18);assert.equal(profile.total,18);
   assert.equal(profile.missing,0);assert.equal(profile.missingPercent,0);assert.equal(profile.passesCompleteness,true);
 });
@@ -217,7 +220,7 @@ test('community profile falls back to a disclosed opening date when delivery is 
     property_manager:'测试物业',property_rights:'70年',field_values:{物业费:'3元/㎡/月',车位:'720个',车位配比:'1:1.2',人车分流:'是'},
     prices:[{amount:42000,unit:'元/㎡',price_type:'platform_reference',observed_at:'2026-09-10'}]
   }}]});
-  assert.deepEqual(profile.timing,{value:'2023年12月24日',label:'开盘时间',basis:'来源页面开盘字段'});
+  assert.deepEqual(profile.timing,{id:'opening',value:'2023年12月24日',label:'开盘时间',basis:'来源页面开盘字段',related:[]});
   assert.equal(profile.price.value,42000);assert.equal(profile.price.label,'新房平台参考均价');
 });
 test('community profile prioritizes dated market reference and labels historical deal fallback honestly',()=>{
@@ -226,11 +229,25 @@ test('community profile prioritizes dated market reference and labels historical
   const deals=communityProfile(house,{prices:[{source_id:'deals',kind:'deal',unit_yuan_sqm:28000,event_date:'2026-06-01',observed_at:'2026-06-24'},{source_id:'deals',kind:'deal',unit_yuan_sqm:32000,event_date:'2026-06-20',observed_at:'2026-06-24'}]});
   assert.equal(deals.price.value,30000);assert.equal(deals.price.label,'成交样本均价');assert.equal(deals.price.count,2);
   assert.equal(deals.price.asOf,'2026-06-01 — 2026-06-20');assert.match(deals.price.basis,/不代表当前行情/);
+  assert.deepEqual({low:deals.price.low,high:deals.price.high},{low:28000,high:32000});
+});
+test('actively selling projects prioritize opening while retaining the disclosed delivery date',()=>{
+  const profile=communityProfile(house,{projects:[{source_id:'new-project:active',payload:{sales_status:'在售',opening_date_raw:'2026年05月01日',delivery_date_raw:'2028年06月30日',field_values:{}}}]});
+  assert.equal(profile.timing.id,'opening');assert.equal(profile.timing.value,'2026年05月01日');
+  assert.deepEqual(profile.timing.related,[{id:'delivery',value:'2028年06月30日',label:'交付时间',basis:'来源页面交房 / 入住字段'}]);
+});
+test('community average excludes rows explicitly marked possible duplicates',()=>{
+  const profile=communityProfile(house,{prices:[
+    {source_id:'deals',kind:'deal',unit_yuan_sqm:30000,event_date:'2026-06-01'},
+    {source_id:'deals',kind:'deal',unit_yuan_sqm:90000,event_date:'2026-06-01',payload:{possible_duplicate:true}}
+  ]});
+  assert.equal(profile.price.value,30000);assert.equal(profile.price.count,1);assert.equal(profile.price.low,30000);assert.equal(profile.price.high,30000);
 });
 test('community profile keeps every key row visible when evidence is missing',()=>{
   const profile=communityProfile({kind:'residential',name:'待补充小区'},{});
   assert.equal(profile.fields.length,16);assert.equal(profile.known,0);assert.equal(profile.total,18);assert.equal(profile.missing,18);assert.equal(profile.missingPercent,100);assert.equal(profile.passesCompleteness,false);assert.equal(profile.timing.value,null);assert.equal(profile.price.value,null);
   assert.equal(profile.fields.every(item=>item.value===null),true);
+  assert.equal(profile.extendedFields.length,13);assert.equal(profile.extendedKnown,0);assert.equal(profile.extendedMissing,13);assert.equal(profile.extendedMissingPercent,100);
 });
 test('observed Fang and Anjuke resale channels are classified without guessing generic URLs',()=>{
   assert.equal(priceMarket({kind:'listing',payload:{url:'https://m.fang.com/esf/hz_xm2010186770/'}}),'resale');

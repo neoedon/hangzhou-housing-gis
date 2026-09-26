@@ -376,6 +376,7 @@ input[type=date]{padding-inline:6px}
 .profile-highlights span,.profile-highlights small{display:block;color:var(--muted);font-size:12px;line-height:1.55}
 .profile-highlights strong{display:block;margin:4px 0;color:#315d35;font-size:19px;font-weight:650;line-height:1.35;letter-spacing:-.2px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .profile-highlights strong small{display:inline;color:inherit;font-size:12px;font-weight:500}
+.profile-highlights .profile-secondary-fact{margin-top:5px;padding-top:5px;border-top:1px solid #dce7d7;color:#4f6c58}
 .profile-groups{display:grid;grid-template-columns:1fr;gap:0}
 .profile-group{padding:13px 0 3px;border-top:1px solid var(--line)}
 .profile-group-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:3px}
@@ -388,6 +389,14 @@ input[type=date]{padding-inline:6px}
 .profile-row.is-missing dd{color:#9aa39b}
 .profile-surroundings .profile-row{grid-template-columns:76px minmax(0,1fr)}
 .profile-surroundings .micro{margin:9px 0 5px}
+.profile-extended{margin:0;padding:0;border-top:1px solid var(--line)}
+.profile-extended summary{display:grid;grid-template-columns:minmax(0,1fr) auto 16px;align-items:center;gap:8px;min-height:46px;padding:9px 0;color:#324b3d;cursor:pointer}
+.profile-extended summary>span{font-size:14px;font-weight:700}
+.profile-extended summary>small{color:var(--muted);font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;text-align:right}
+.profile-extended summary svg{width:16px;height:16px;transition:transform .18s ease}
+.profile-extended[open] summary svg{transform:rotate(180deg)}
+.profile-extended>.micro{margin:0 0 4px;padding:9px 10px;border-radius:8px;background:#f6f7f2}
+.profile-extended dl{margin:0}
 .profile-evidence{display:flex;align-items:flex-start;gap:7px 10px;flex-wrap:wrap;margin-top:13px;padding:10px 11px;border-radius:8px;background:#f6f7f2;color:var(--muted);font-size:12px;line-height:1.65}
 .profile-evidence>span{flex:1 1 190px}
 .profile-evidence .text-button{flex:none}

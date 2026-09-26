@@ -85,31 +85,43 @@ function averagePrice(rows){
   const values=rows.map(row=>positiveNumber(row?.unit_yuan_sqm)).filter(Boolean);
   return values.length?Math.round(values.reduce((sum,value)=>sum+value,0)/values.length):null;
 }
+function priceRange(rows){
+  const values=rows.map(row=>positiveNumber(row?.unit_yuan_sqm)).filter(Boolean);
+  return values.length?{low:Math.min(...values),high:Math.max(...values)}:{low:null,high:null};
+}
+const possibleDuplicate=row=>!!(row?.possible_duplicate||row?.payload?.possible_duplicate);
 /** Build one evidence-bounded profile for every residential detail panel. */
 export function communityProfile(entity={},detail={}){
   const projectRow=bestProject(detail.projects||[]),project=projectRow?.payload||{},fields=project.field_values||{};
   const snapshots=(detail.market_snapshots||[]).filter(row=>positiveNumber(row?.payload?.reference_unit_yuan_sqm));
   const projectPrices=(project.prices||[]).filter(price=>!price?.font_encoded&&positiveNumber(price?.amount)&&['元/㎡','元/平方米'].includes(price?.unit));
-  const listingRows=(detail.prices||[]).filter(row=>row?.kind==='listing'&&positiveNumber(row?.unit_yuan_sqm));
-  const dealRows=(detail.prices||[]).filter(row=>row?.kind==='deal'&&positiveNumber(row?.unit_yuan_sqm));
-  let price={value:null,label:'均价',basis:'尚无可可靠展示的均价记录',asOf:null,observedAt:null,count:0,sourceId:null};
+  const listingRows=(detail.prices||[]).filter(row=>row?.kind==='listing'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm));
+  const dealRows=(detail.prices||[]).filter(row=>row?.kind==='deal'&&!possibleDuplicate(row)&&positiveNumber(row?.unit_yuan_sqm));
+  let price={value:null,label:'均价',basis:'尚无可可靠展示的均价记录',asOf:null,observedAt:null,count:0,sourceId:null,low:null,high:null};
   if(snapshots.length){
     const row=snapshots[0],payload=row.payload||{};
-    price={value:positiveNumber(payload.reference_unit_yuan_sqm),label:'小区参考均价',basis:payload.metric_semantics||'平台小区参考值，非逐套成交价',asOf:profileDate(payload.source_as_of),observedAt:profileDate(payload.observed_at||row.observed_at),count:1,sourceId:row.source_id};
+    const value=positiveNumber(payload.reference_unit_yuan_sqm);
+    price={value,label:'小区参考均价',basis:payload.metric_semantics||'平台小区参考值，非逐套成交价',asOf:profileDate(payload.source_as_of),observedAt:profileDate(payload.observed_at||row.observed_at),count:1,sourceId:row.source_id,low:value,high:value};
   }else if(projectPrices.length){
     const item=projectPrices[0];
-    price={value:positiveNumber(item.amount),label:'新房平台参考均价',basis:'平台参考口径，非备案价或网签成交价',asOf:profileDate(item.price_as_of),observedAt:profileDate(item.observed_at||project.detail_observed_at),count:1,sourceId:projectRow?.source_id||null};
+    const value=positiveNumber(item.amount);
+    price={value,label:'新房平台参考均价',basis:'平台参考口径，非备案价或网签成交价',asOf:profileDate(item.price_as_of),observedAt:profileDate(item.observed_at||project.detail_observed_at),count:1,sourceId:projectRow?.source_id||null,low:value,high:value};
   }else if(listingRows.length){
-    price={value:averagePrice(listingRows),label:'挂牌样本均价',basis:'已入库挂牌线索均值，非在售核验',asOf:null,observedAt:profileDate(listingRows[0]?.observed_at),count:listingRows.length,sourceId:listingRows[0]?.source_id||null};
+    price={value:averagePrice(listingRows),label:'挂牌样本均价',basis:'已入库挂牌线索均值，非在售核验',asOf:null,observedAt:profileDate(listingRows[0]?.observed_at),count:listingRows.length,sourceId:listingRows[0]?.source_id||null,...priceRange(listingRows)};
   }else if(dealRows.length){
     const dates=dealRows.map(row=>profileDate(row.event_date)).filter(Boolean).sort();
-    price={value:averagePrice(dealRows),label:'成交样本均价',basis:'已入库历史成交样本均值，不代表当前行情',asOf:dates.length?`${dates[0]}${dates.at(-1)!==dates[0]?' — '+dates.at(-1):''}`:null,observedAt:profileDate(dealRows[0]?.observed_at),count:dealRows.length,sourceId:dealRows[0]?.source_id||null};
+    price={value:averagePrice(dealRows),label:'成交样本均价',basis:'已入库历史成交样本均值，不代表当前行情',asOf:dates.length?`${dates[0]}${dates.at(-1)!==dates[0]?' — '+dates.at(-1):''}`:null,observedAt:profileDate(dealRows[0]?.observed_at),count:dealRows.length,sourceId:dealRows[0]?.source_id||null,...priceRange(dealRows)};
   }
   const delivery=firstPresent(project.delivery_date_raw,fields['最近交房'],fields['交房时间'],fields['入住时间']);
   const opening=firstPresent(project.opening_date_raw,fields['最近开盘'],fields['开盘时间'],fields['首次开盘']);
   const permits=(project.presale_permits||[]).map(permit=>profileDate(permit?.permit_date_raw)).filter(Boolean).sort();
-  const timing=delivery?{value:delivery,label:'交付时间',basis:'来源页面“最近交房”字段'}:
-    opening?{value:opening,label:'开盘时间',basis:'来源页面开盘字段'}:
+  const timingFacts=[
+    delivery?{id:'delivery',value:String(delivery),label:'交付时间',basis:'来源页面交房 / 入住字段'}:null,
+    opening?{id:'opening',value:String(opening),label:'开盘时间',basis:'来源页面开盘字段'}:null
+  ].filter(Boolean);
+  const activelySelling=/^(?:待售|在售|预售|现房销售|尾盘)$/.test(String(project.sales_status||''));
+  const preferredTiming=activelySelling&&opening?timingFacts.find(item=>item.id==='opening'):timingFacts.find(item=>item.id==='delivery')||timingFacts[0];
+  const timing=preferredTiming?{...preferredTiming,related:timingFacts.filter(item=>item.id!==preferredTiming.id)}:
     {value:null,label:'交付 / 开盘',basis:permits.length?`尚未披露；最早预售许可 ${permits[0]}`:'来源尚未披露'};
   const propertyType=Array.isArray(project.property_type)?project.property_type.filter(Boolean).join('、'):project.property_type;
   const builtYear=firstPresent(entity?.candidate?.built_year,snapshots[0]?.payload?.built_year_source,fields['建成年代'],fields['竣工时间']);
@@ -123,11 +135,20 @@ export function communityProfile(entity={},detail={}){
   ].map(([group,label,value])=>({group,label,value:present(value)?String(value):null}));
   const groups=[['basic','基本情况'],['planning','总体规划'],['property','物业与停车']]
     .map(([id,label])=>({id,label,items:profileFields.filter(item=>item.group===id)}));
-  const surrounding=[['小区设施',fields['小区配套']],['交通',fields['交通情况']],['周边配套',fields['周边配套']]]
+  const extendedFields=[
+    ['来源楼盘名',firstPresent(fields['备案名称'],fields['楼盘名称'],project.name)],['开盘时间',opening],['交付时间',delivery],
+    ['建筑层高',firstPresent(fields['建筑层高'],fields['层高情况'],fields['层高'])],['楼栋总数',firstPresent(fields['楼栋总数'],fields['楼栋数'])],
+    ['楼层状况',firstPresent(fields['楼层状况'],fields['楼层情况'],fields['楼层'])],['户型面积',firstPresent(fields['户型面积'],fields['主力户型'])],['装修情况',firstPresent(fields['装修情况'],fields['装修标准'],fields['装修'])],
+    ['可售车位',firstPresent(fields['可售车位'],fields['可售车位数'])],['车位价格',fields['车位价格']],['立面材料',firstPresent(fields['立面材料'],fields['外立面'])],
+    ['项目公司',fields['项目公司']],['开发品牌',fields['开发品牌']]
+  ].map(([label,value])=>({label,value:present(value)?String(value):null}));
+  const surrounding=[['小区设施',fields['小区配套']],['交通',fields['交通情况']],['教育',fields['教育']],['医疗',fields['医疗']],['商业',fields['商业']],['办公',fields['办公']],['景观',fields['景观']],['周边配套',fields['周边配套']]]
     .filter(([,value])=>present(value)).map(([label,value])=>({label,value:String(value)}));
   const known=profileFields.filter(item=>present(item.value)).length+Number(present(timing.value))+Number(positiveNumber(price.value)!==null);
   const total=profileFields.length+2,missing=total-known,missingRate=missing/total;
-  return {projectRow,project,price,timing,fields:profileFields,groups,surrounding,
+  const extendedKnown=extendedFields.filter(item=>present(item.value)).length,extendedTotal=extendedFields.length;
+  return {projectRow,project,price,timing,timingFacts,fields:profileFields,groups,extendedFields,extendedKnown,extendedTotal,
+    extendedMissing:extendedTotal-extendedKnown,extendedMissingPercent:Math.round((extendedTotal-extendedKnown)/extendedTotal*100),surrounding,
     known,total,missing,missingRate,missingPercent:Math.round(missingRate*100),passesCompleteness:missingRate<0.4,
     observedAt:profileDate(project.detail_observed_at||projectRow?.observed_at),sourceId:projectRow?.source_id||null};
 }

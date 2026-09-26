@@ -40,5 +40,6 @@ test('community detail and comparison both expose delivery or opening time and e
   assert.match(app,/'交付 \/ 开盘'/);
   assert.match(app,/'均价 \/ 行情'/);
   assert.match(app,/p:communityProfile\(e,d\)/);
-  assert.match(app,/均价按可用来源优先级展示，不混合新房参考价、挂牌与历史成交/);
+  assert.match(app,/均价不混合新房参考价、挂牌与历史成交/);
+  assert.match(app,/更多楼盘参数/);
 });

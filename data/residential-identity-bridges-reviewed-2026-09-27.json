@@ -120,6 +120,76 @@
         "lead:c521cd0f20c7f966f7f4f97711c6c461d1b52fa0d035191bb7f10dfbaeafd121"
       ],
       "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:bae0aa692482b725f4aa",
+      "source_name": "龙湖滨康天曜城",
+      "target_entity_id": "osm:way:1447874590",
+      "target_name": "滨康天曜城",
+      "district": "滨江区",
+      "evidence_project_id": "leju:hangzhou:173567",
+      "identity_basis": "brand_prefix_plus_project_name",
+      "brand_prefix": "龙湖",
+      "base_name": "滨康天曜城",
+      "evidence_note": "价格源名称由项目开发商品牌龙湖与项目名滨康天曜城严格组成；项目资料同时列明龙湖集团开发。",
+      "price_ids": [
+        "deal:00cfe2bcd9c292844db87d4a34261b2d905b7b14f117dd61904ca960edf064ad"
+      ],
+      "market_snapshot_ids": []
+    },
+    {
+      "source_entity_id": "local:residential:573ed769fe269ced41c8",
+      "source_name": "景瑞申花壹号院",
+      "target_entity_id": "osm:way:673543501",
+      "target_name": "申花壹号院",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:114785",
+      "identity_basis": "brand_prefix_plus_project_name",
+      "brand_prefix": "景瑞",
+      "base_name": "申花壹号院",
+      "evidence_note": "房天下目录名称、项目资料名与申花路丰潭路地址一致；项目别名含景瑞品牌。",
+      "price_id_set": {
+        "count": 34,
+        "sha256": "968f29826db8729916b67299dad91751706849926540b69ee2e334dcf06083ea"
+      },
+      "market_snapshot_ids": [
+        "fang:reference:2011130316:2026-09-09"
+      ]
+    },
+    {
+      "source_entity_id": "local:residential:826cc7a0e3d899279c2b",
+      "source_name": "春江时代",
+      "target_entity_id": "osm:way:337801224",
+      "target_name": "同人春江时代",
+      "district": "滨江区",
+      "evidence_project_id": "leju:hangzhou:8503",
+      "identity_basis": "project_text_contains_source_name",
+      "project_evidence_field": "field_values.项目介绍",
+      "evidence_contains": "春江时代花园",
+      "evidence_note": "项目介绍直接使用春江时代花园，房天下同一目录编号同时出现春江时代与同人春江时代花园，地址均为钱江四桥以东600米。",
+      "price_id_set": {
+        "count": 34,
+        "sha256": "170f0950a9dc0d578548150d6dd9e19d4691c212889ba8158bf2190317646837"
+      },
+      "market_snapshot_ids": [
+        "fang:reference:2010064201:2026-09-09"
+      ]
+    },
+    {
+      "source_entity_id": "local:residential:d1e6c9682a578e5015fb",
+      "source_name": "金地大运宸府",
+      "target_entity_id": "osm:way:664966987",
+      "target_name": "大运宸府",
+      "district": "拱墅区",
+      "evidence_project_id": "leju:hangzhou:136321",
+      "identity_basis": "brand_prefix_plus_project_name",
+      "brand_prefix": "金地",
+      "base_name": "大运宸府",
+      "evidence_note": "价格源名称由项目品牌金地与地图别名大运宸府严格组成；项目档案名为金地大运河府并明确列出大运宸府别名。",
+      "price_ids": [
+        "deal:63c461a87a3bdb2aad79e44df6d19b135627cdc5aa9fcb31bd8b021a1c3ccdf8"
+      ],
+      "market_snapshot_ids": []
     }
   ]
 }

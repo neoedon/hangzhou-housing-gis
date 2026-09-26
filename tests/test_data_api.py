@@ -108,6 +108,33 @@ class DataTests(unittest.TestCase):
             self.assertIsNone(event_date)
         self.assertEqual(self.db.execute("SELECT count(*) FROM policy_texts WHERE kind='construction_progress'").fetchone()[0], inc.get('school_observations', 0))
 
+    def test_reviewed_residential_identity_bridges_attach_only_market_evidence(self):
+        metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
+        bridges = metrics["residential_identity_bridges"]
+        self.assertEqual((bridges["bridges"], bridges["prices"], bridges["market_snapshots"]), (13, 87, 2))
+        mappings = self.db.execute("""
+            SELECT source_record,entity_id,options FROM mappings
+            WHERE source_id='residential-identity-bridges'
+        """).fetchall()
+        self.assertEqual(len(mappings), 13)
+        for source_entity_id, target_entity_id, raw_options in mappings:
+            options = json.loads(raw_options)
+            self.assertTrue(target_entity_id.startswith('osm:'))
+            self.assertEqual(options['scope'], 'prices_and_market_snapshots_only')
+            self.assertIsNotNone(self.db.execute(
+                'SELECT id FROM entities WHERE id=?', (source_entity_id,)).fetchone())
+            self.assertEqual(self.db.execute(
+                'SELECT count(*) FROM prices WHERE entity_id=?', (source_entity_id,)).fetchone()[0], 0)
+            self.assertEqual(self.db.execute(
+                'SELECT count(*) FROM market_snapshots WHERE entity_id=?', (source_entity_id,)).fetchone()[0], 0)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM prices WHERE entity_id='osm:way:337801224'"
+        ).fetchone()[0], 34)
+        self.assertEqual(self.db.execute(
+            "SELECT json_extract(payload,'$.reference_unit_yuan_sqm') FROM market_snapshots "
+            "WHERE entity_id='osm:way:673543501'"
+        ).fetchone()[0], 46890)
+
     def test_price_enrichments_preserve_record_identity_and_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         enriched = 0

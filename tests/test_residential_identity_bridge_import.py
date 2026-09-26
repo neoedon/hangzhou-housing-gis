@@ -9,7 +9,7 @@ import unittest
 APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
 
-from build_data import Builder, SCHEMA, dump
+from build_data import Builder, SCHEMA, dump, digest
 from residential_identity_bridge_import import integrate
 
 
@@ -106,6 +106,32 @@ class ResidentialIdentityBridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "reviewed price_ids changed"):
             integrate(self.builder, self.catalogue())
 
+    def test_hashed_record_set_moves_only_the_reviewed_complete_set(self):
+        path = self.catalogue(bridge={
+            "price_ids": None,
+            "price_id_set": {"count": 1, "sha256": digest(dump(["price:one"]))},
+        })
+        document = json.loads(path.read_text())
+        document["bridges"][0].pop("price_ids")
+        path.write_text(json.dumps(document, ensure_ascii=False))
+        result = integrate(self.builder, path)
+        self.assertEqual(result["prices"], 1)
+        mapping = json.loads(self.db.execute(
+            "SELECT options FROM mappings WHERE source_id='residential-identity-bridges'"
+        ).fetchone()[0])
+        self.assertEqual(mapping["price_record_count"], 1)
+        self.assertEqual(mapping["price_record_sha256"], digest(dump(["price:one"])))
+
+    def test_hashed_record_set_rejects_changed_count_or_hash(self):
+        for lock in ({"count": 2, "sha256": digest(dump(["price:one"]))},
+                     {"count": 1, "sha256": "0" * 64}):
+            path = self.catalogue(bridge={"price_ids": None, "price_id_set": lock})
+            document = json.loads(path.read_text())
+            document["bridges"][0].pop("price_ids")
+            path.write_text(json.dumps(document, ensure_ascii=False))
+            with self.assertRaisesRegex(ValueError, "reviewed price_ids changed"):
+                integrate(self.builder, path)
+
     def test_cross_district_and_non_osm_targets_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "cross districts"):
             integrate(self.builder, self.catalogue(bridge={"district": "拱墅区"}))
@@ -122,6 +148,38 @@ class ResidentialIdentityBridgeTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "absent from target project evidence"):
             integrate(self.builder, self.catalogue())
+
+    def test_brand_prefix_basis_requires_exact_composition_and_project_corroboration(self):
+        self.db.execute("UPDATE entities SET name='品牌项目名' WHERE id='local:source'")
+        self.db.execute("UPDATE entities SET name='项目名' WHERE id='osm:way:target'")
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({"name": "项目名", "aliases": [], "developer": "品牌集团"}),),
+        )
+        bridge = {
+            "source_name": "品牌项目名",
+            "target_name": "项目名",
+            "identity_basis": "brand_prefix_plus_project_name",
+            "brand_prefix": "品牌",
+            "base_name": "项目名",
+        }
+        self.assertEqual(integrate(self.builder, self.catalogue(bridge=bridge))["prices"], 1)
+
+    def test_project_text_basis_requires_reviewed_phrase_containing_source_name(self):
+        self.db.execute(
+            "UPDATE projects SET payload=? WHERE id='project:one'",
+            (dump({
+                "name": "地图简称",
+                "aliases": [],
+                "field_values": {"项目介绍": "平台全名花园已交付"},
+            }),),
+        )
+        bridge = {
+            "identity_basis": "project_text_contains_source_name",
+            "project_evidence_field": "field_values.项目介绍",
+            "evidence_contains": "平台全名花园",
+        }
+        self.assertEqual(integrate(self.builder, self.catalogue(bridge=bridge))["prices"], 1)
 
     def test_unreviewed_catalogue_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "not reviewed"):

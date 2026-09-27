@@ -131,6 +131,8 @@ class DataTests(unittest.TestCase):
             "osm:way:545181727": ("leju:hangzhou:16864", "2010年10月30日", "730户", "project_description_explicit_residential_community", 2),
             "osm:way:527244155": ("leju:hangzhou:8433", "2009年10月", "740户", "project_description_explicit_residential_buildings", 2),
             "osm:way:614214449": ("leju:hangzhou:8524", "2010年12月31日", "655户", "project_description_explicit_residential_buildings", 1),
+            "osm:way:1119501973": ("leju:hangzhou:27809", "2010年12月", "约900户", "reviewed_residential_classification_from_explicit_residential_project_description", 2),
+            "osm:way:489071255": ("leju:hangzhou:27768", "2011年02月", "1132户", "reviewed_residential_classification_from_70_year_rights_and_explicit_residential_description", 1),
         }
         for entity_id, (project_id, delivery, units, quality_flag, minimum_deals) in expected.items():
             with self.subTest(entity_id=entity_id):

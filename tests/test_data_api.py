@@ -123,6 +123,25 @@ class DataTests(unittest.TestCase):
         self.assertIn("source_property_type_label_preserved", payload["quality_flags"])
         self.assertGreaterEqual(len([row for row in detail["prices"] if row["kind"] == "deal"]), 2)
 
+    def test_reviewed_legacy_project_profiles_join_the_exact_mapped_communities(self):
+        expected = {
+            "osm:way:673543493": ("leju:hangzhou:49674", "2014年12月", "1947户", "reviewed_residential_classification_from_70_year_rights_and_existing_residential_community", 3),
+            "osm:way:706869013": ("leju:hangzhou:8951", "2005年12月31日", "700户", "source_property_type_not_disclosed", 2),
+            "osm:way:403036309": ("leju:hangzhou:8420", "2010年09月01日", "194户", "project_description_explicit_residential_buildings", 2),
+        }
+        for entity_id, (project_id, delivery, units, quality_flag, minimum_deals) in expected.items():
+            with self.subTest(entity_id=entity_id):
+                detail = server.entity_detail(self.db, entity_id)
+                project = next(row for row in detail["projects"] if row["id"] == project_id)
+                payload = project["payload"]
+                self.assertEqual(payload["target_entity_id"], entity_id)
+                self.assertEqual(payload["delivery_date_raw"], delivery)
+                self.assertEqual(payload["units_raw"], units)
+                self.assertTrue(payload["is_residential"])
+                self.assertIn("reviewed_exact_name_address_identity_bridge", payload["quality_flags"])
+                self.assertIn(quality_flag, payload["quality_flags"])
+                self.assertGreaterEqual(len([row for row in detail["prices"] if row["kind"] == "deal"]), minimum_deals)
+
     def test_reviewed_residential_identity_bridges_attach_only_market_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_identity_bridges"]

@@ -433,6 +433,7 @@ function fitRelations(){
   const p=map.getPadding();map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:{top:p.top+32,bottom:p.bottom+32,left:p.left+32,right:p.right+32},maxZoom:15.8,duration:500});
 }
 function addLayers(){
+  if(ready||!map)return;
   map.addSource('gis-districts',{type:'geojson',data:'./assets/districts.geojson'});
   map.addLayer({id:'gis-district-fill',type:'fill',source:'gis-districts',paint:{'fill-color':'#87956b','fill-opacity':0.035}});
   map.addLayer({id:'gis-district-lines',type:'line',source:'gis-districts',paint:{'line-color':'#829467','line-width':1.4,'line-opacity':.65,'line-dasharray':[4,3]}});
@@ -457,6 +458,14 @@ async function initMap(){
     for(const layer of style.layers)if(layer.layout?.['text-field'])layer.layout['text-size']=minimumTextSize(layer.layout['text-size']);
     // One camera and renderer for base tiles, labels, points, lines and boundaries.
     map=new maplibregl.Map({container:'map',style,center:[120.182,30.199],zoom:12.6,minZoom:8.5,maxZoom:20,pitch:0,bearing:0,dragRotate:false,pitchWithRotate:false,canvasContextAttributes:{preserveDrawingBuffer:true},attributionControl:false});
+    // A cached local style can finish between construction and listener binding.
+    // Observe every style readiness signal and also check the next microtask so
+    // the GIS overlays never remain stuck behind a missed `style.load` event.
+    const activateGISLayers=()=>{if(!ready&&map.isStyleLoaded())addLayers();};
+    map.on('style.load',activateGISLayers);
+    map.on('styledata',activateGISLayers);
+    map.on('load',activateGISLayers);
+    queueMicrotask(activateGISLayers);
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
     map.addControl(new maplibregl.ScaleControl({maxWidth:80,unit:'metric'}),'bottom-left');
@@ -465,7 +474,6 @@ async function initMap(){
       const control=$(selector);control.setAttribute('aria-label',label);control.title=label;
       (control.querySelector('.maplibregl-ctrl-icon')||control).replaceChildren(createIcon(name));
     }
-    map.on('style.load',addLayers);
     map.on('error',e=>{if(e.error?.message?.includes('Failed to fetch')||e.error?.message?.includes('AJAXError')){map.hasGISNetworkError=true;announce('部分在线底图资源加载失败；本地资料仍可查询。可关闭在线底图，保留研究点位与边界。');}});
     map.on('moveend',()=>{if(state.viewportOnly){const b=map.getBounds();state.bounds=[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()];renderQuery();}});
     map.on('zoomend',()=>renderMap());

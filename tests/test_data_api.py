@@ -108,6 +108,21 @@ class DataTests(unittest.TestCase):
             self.assertIsNone(event_date)
         self.assertEqual(self.db.execute("SELECT count(*) FROM policy_texts WHERE kind='construction_progress'").fetchone()[0], inc.get('school_observations', 0))
 
+    def test_bandao_international_profile_is_attached_to_the_mapped_community(self):
+        detail = server.entity_detail(self.db, "osm:way:337801229")
+        project = next(row for row in detail["projects"] if row["id"] == "leju:hangzhou:34710")
+        payload = project["payload"]
+        self.assertEqual(payload["name"], "半岛国际")
+        self.assertEqual(payload["target_entity_id"], "osm:way:337801229")
+        self.assertEqual(payload["delivery_date_raw"], "2014年06月")
+        self.assertEqual(payload["building_area_raw"], "240000㎡")
+        self.assertEqual(payload["units_raw"], "1566户")
+        self.assertEqual(payload["floor_area_ratio_raw"], "2.64")
+        self.assertEqual(payload["property_rights"], "70年")
+        self.assertTrue(payload["is_residential"])
+        self.assertIn("source_property_type_label_preserved", payload["quality_flags"])
+        self.assertGreaterEqual(len([row for row in detail["prices"] if row["kind"] == "deal"]), 2)
+
     def test_reviewed_residential_identity_bridges_attach_only_market_evidence(self):
         metrics = json.loads(self.db.execute("SELECT value FROM meta WHERE key='metrics'").fetchone()[0])
         bridges = metrics["residential_identity_bridges"]

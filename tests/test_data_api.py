@@ -133,6 +133,12 @@ class DataTests(unittest.TestCase):
             "osm:way:614214449": ("leju:hangzhou:8524", "2010年12月31日", "655户", "project_description_explicit_residential_buildings", 1),
             "osm:way:1119501973": ("leju:hangzhou:27809", "2010年12月", "约900户", "reviewed_residential_classification_from_explicit_residential_project_description", 2),
             "osm:way:489071255": ("leju:hangzhou:27768", "2011年02月", "1132户", "reviewed_residential_classification_from_70_year_rights_and_explicit_residential_description", 1),
+            "osm:way:338339386": ("leju:hangzhou:8652", "2007年07月31日", "1600户", "project_description_explicit_residential_community", 30),
+            "osm:way:514136210": ("profile-tail:leju-identity:8568", "2001年12月01日", "850户", "source_property_type_residential", 3),
+            "osm:way:518850494": ("profile-tail:leju-identity:8905", "2003年09月30日", "1207户", "reviewed_phase_identity_from_source_name", 2),
+            "osm:way:443568403": ("profile-tail:leju-identity:8442", "2006年03月30日", "800户", "project_description_confirms_ordinary_residential_units", 1),
+            "osm:way:514164056": ("profile-tail:leju-identity:8401", "2006年05月30日", "200户", "source_property_type_residential", 1),
+            "osm:way:514251219": ("profile-tail:leju-identity:8942", "2006年12月01日", "400户", "human_vehicle_separation_conflict_omitted", 1),
         }
         for entity_id, (project_id, delivery, units, quality_flag, minimum_deals) in expected.items():
             with self.subTest(entity_id=entity_id):
